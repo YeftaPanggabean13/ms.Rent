@@ -1,0 +1,50 @@
+package models
+
+import (
+	"time"
+)
+
+type Bike struct {
+	ID           uint      `gorm:"primaryKey" json:"id"`
+	Name         string    `gorm:"size:100;not null" json:"name"`
+	Brand        string    `gorm:"size:50;not null" json:"brand"`
+	Category     string    `gorm:"size:50;not null" json:"category"`
+	EngineCC     int       `json:"engine_cc"`
+	Year         int       `json:"year"`
+	Transmission string    `gorm:"size:30" json:"transmission"`
+	PricePerDay  float64   `gorm:"not null" json:"price_per_day"`
+	PlateNumber  string    `gorm:"size:30" json:"plate_number"`
+	Status       string    `gorm:"size:30;default:'available'" json:"status"` // available, rented, maintenance
+	ImageURL     string    `gorm:"size:255" json:"image_url"`
+	Features     string    `gorm:"size:255" json:"features"` // comma separated e.g. "2 Helm SNI, Jas Hujan, Phone Holder"
+	Description  string    `gorm:"type:text" json:"description"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
+type Booking struct {
+	ID              uint      `gorm:"primaryKey" json:"id"`
+	BookingCode     string    `gorm:"size:50;uniqueIndex;not null" json:"booking_code"`
+	BikeID          uint      `gorm:"not null" json:"bike_id"`
+	Bike            *Bike     `gorm:"foreignKey:BikeID" json:"bike,omitempty"`
+	CustomerName    string    `gorm:"size:100;not null" json:"customer_name"`
+	CustomerPhone   string    `gorm:"size:30;not null" json:"customer_phone"`
+	CustomerEmail   string    `gorm:"size:100" json:"customer_email"`
+	CustomerIDCard  string    `gorm:"size:50" json:"customer_id_card"`
+	StartDate       string    `gorm:"size:30;not null" json:"start_date"` // YYYY-MM-DD
+	EndDate         string    `gorm:"size:30;not null" json:"end_date"`   // YYYY-MM-DD
+	DurationDays    int       `gorm:"not null" json:"duration_days"`
+	PickupLocation  string    `gorm:"size:100" json:"pickup_location"`
+	ReturnLocation  string    `gorm:"size:100" json:"return_location"`
+	DeliveryAddress string    `gorm:"size:255" json:"delivery_address"`
+	ExtraHelmets    int       `gorm:"default:0" json:"extra_helmets"`
+	RaincoatCount   int       `gorm:"default:1" json:"raincoat_count"`
+	PhoneHolder     bool      `gorm:"default:true" json:"phone_holder"`
+	TotalPrice      float64   `gorm:"not null" json:"total_price"`
+	PaymentStatus   string    `gorm:"size:30;default:'unpaid'" json:"payment_status"` // unpaid, paid, refunded
+	BookingStatus   string    `gorm:"size:30;default:'pending'" json:"booking_status"` // pending, confirmed, active, completed, cancelled
+	PaymentMethod   string    `gorm:"size:50;default:'Transfer Bank'" json:"payment_method"`
+	Notes           string    `gorm:"type:text" json:"notes"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
