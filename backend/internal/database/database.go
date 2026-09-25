@@ -6,6 +6,7 @@ import (
 
 	"os"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -45,13 +46,14 @@ func InitDB() *gorm.DB {
 
 	// Auto Migration
 	log.Println("🛠️ Menjalankan Auto-Migration tabel database...")
-	err = db.AutoMigrate(&models.Bike{}, &models.Booking{})
+	err = db.AutoMigrate(&models.User{}, &models.Bike{}, &models.Booking{})
 	if err != nil {
 		log.Fatalf("❌ Gagal migrasi database: %v", err)
 	}
 
 	// Seed data jika belum ada motor
 	seedBikes(db)
+	seedAdmin(db)
 
 	DB = db
 	return db
@@ -184,6 +186,27 @@ func seedBikes(db *gorm.DB) {
 		db.Create(&bike)
 	}
 	log.Printf("✅ Berhasil menambahkan %d unit motor awal ke database!", len(initialBikes))
+}
+
+func seedAdmin(db *gorm.DB) {
+	var count int64
+	db.Model(&models.User{}).Where("role = ?", "admin").Count(&count)
+	if count > 0 {
+		return
+	}
+
+	log.Println("🔐 Membuat akun admin default...")
+	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("admin123"), bcrypt.DefaultCost)
+	admin := models.User{
+		Name:     "Admin Garasi",
+		Email:    "admin@msrent.com",
+		Password: string(hashedPassword),
+		Role:     "admin",
+		Phone:    "081234567890",
+		IsActive: true,
+	}
+	db.Create(&admin)
+	log.Println("✅ Akun admin berhasil dibuat (admin@msrent.com / admin123)")
 }
 
 func getEnv(key, defaultVal string) string {
