@@ -19,6 +19,52 @@ func NewBookingHandler() *BookingHandler {
 	return &BookingHandler{}
 }
 
+// GetCalendar mengembalikan tanggal-tanggal yang sudah terbooking pada bulan tertentu
+func (h *BookingHandler) GetCalendar(c *gin.Context) {
+	bikeID := c.Param("id")
+	month := c.Query("month") // format YYYY-MM
+
+	if month == "" {
+		month = time.Now().Format("2006-01")
+	}
+
+	// Parse awal dan akhir bulan
+	startOfMonth, err := time.Parse("2006-01", month)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format bulan tidak valid (gunakan YYYY-MM)"})
+		return
+	}
+	endOfMonth := startOfMonth.AddDate(0, 1, -1)
+
+	// Ambil semua booking yang overlap dengan bulan ini
+	var bookings []models.Booking
+	database.DB.Where(
+		"bike_id = ? AND booking_status IN ('pending', 'confirmed', 'active') AND start_date <= ? AND end_date >= ?",
+		bikeID, endOfMonth.Format("2006-01-02"), startOfMonth.Format("2006-01-02"),
+	).Find(&bookings)
+
+	// Bangun map tanggal yang terbooked
+	bookedDates := map[string]string{} // date -> status
+	for _, b := range bookings {
+		start, e1 := time.Parse("2006-01-02", b.StartDate)
+		end, e2 := time.Parse("2006-01-02", b.EndDate)
+		if e1 != nil || e2 != nil {
+			continue
+		}
+		for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
+			dateStr := d.Format("2006-01-02")
+			bookedDates[dateStr] = b.BookingStatus
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":      true,
+		"bike_id":      bikeID,
+		"month":        month,
+		"booked_dates": bookedDates,
+	})
+}
+
 // CheckAvailability memeriksa apakah motor tertentu tersedia pada rentang tanggal tertentu
 func (h *BookingHandler) CheckAvailability(c *gin.Context) {
 	bikeID := c.Param("id")

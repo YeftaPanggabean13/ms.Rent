@@ -1,6 +1,85 @@
-import { Bike, Booking, DashboardStats } from "@/types";
+import { Bike, Booking, DashboardStats, AuthResponse, User, CalendarData } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
+
+// ====================== AUTH HELPERS ======================
+
+const AUTH_TOKEN_KEY = "ms_rent_token";
+const AUTH_USER_KEY = "ms_rent_user";
+
+export function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+export function getStoredUser(): User | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(AUTH_USER_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function storeAuth(token: string, user: User) {
+  localStorage.setItem(AUTH_TOKEN_KEY, token);
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+}
+
+export function clearAuth() {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_USER_KEY);
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getStoredToken();
+  if (!token) return { "Content-Type": "application/json" };
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+// ====================== AUTH API ======================
+
+export async function login(email: string, password: string): Promise<AuthResponse> {
+  const res = await fetch(`${API_BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || "Login gagal");
+  return json;
+}
+
+export async function register(name: string, email: string, password: string, phone: string): Promise<AuthResponse> {
+  const res = await fetch(`${API_BASE_URL}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, password, phone }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.error || "Registrasi gagal");
+  return json;
+}
+
+export async function getProfile(): Promise<User | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/me`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data;
+  } catch {
+    return null;
+  }
+}
+
+// ====================== MOCK DATA (fallback) ======================
 
 export const initialMockBikes: Bike[] = [
   {
@@ -125,6 +204,8 @@ export const initialMockBikes: Bike[] = [
   },
 ];
 
+// ====================== PUBLIC BIKE API ======================
+
 export async function getBikes(params?: { category?: string; brand?: string; search?: string }): Promise<Bike[]> {
   try {
     const url = new URL(`${API_BASE_URL}/bikes`);
@@ -167,6 +248,19 @@ export async function getBikeByID(id: number): Promise<Bike | null> {
   }
 }
 
+export async function getBikeCalendar(bikeId: number, month: string): Promise<Record<string, string>> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/bikes/${bikeId}/calendar?month=${month}`);
+    if (!res.ok) throw new Error("Calendar error");
+    const json: CalendarData = await res.json();
+    return json.booked_dates || {};
+  } catch {
+    return {};
+  }
+}
+
+// ====================== PUBLIC BOOKING API ======================
+
 export async function createBooking(data: Booking): Promise<{ success: boolean; data?: Booking; error?: string }> {
   try {
     const res = await fetch(`${API_BASE_URL}/bookings`, {
@@ -196,17 +290,6 @@ export async function createBooking(data: Booking): Promise<{ success: boolean; 
   }
 }
 
-export async function getBookings(): Promise<Booking[]> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/bookings`, { cache: "no-store" });
-    if (!res.ok) throw new Error("Gagal mengambil bookings");
-    const json = await res.json();
-    return json.data || [];
-  } catch {
-    return [];
-  }
-}
-
 export async function getBookingByCode(code: string): Promise<Booking | null> {
   try {
     const res = await fetch(`${API_BASE_URL}/bookings/code/${code}`);
@@ -218,14 +301,30 @@ export async function getBookingByCode(code: string): Promise<Booking | null> {
   }
 }
 
+// ====================== ADMIN API (protected) ======================
+
+export async function getBookings(): Promise<Booking[]> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/bookings`, {
+      cache: "no-store",
+      headers: authHeaders(),
+    });
+    if (!res.ok) throw new Error("Gagal mengambil bookings");
+    const json = await res.json();
+    return json.data || [];
+  } catch {
+    return [];
+  }
+}
+
 export async function updateBookingStatus(
   id: number,
   status: { booking_status?: string; payment_status?: string }
 ): Promise<boolean> {
   try {
-    const res = await fetch(`${API_BASE_URL}/bookings/${id}/status`, {
+    const res = await fetch(`${API_BASE_URL}/admin/bookings/${id}/status`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders(),
       body: JSON.stringify(status),
     });
     return res.ok;
@@ -236,7 +335,10 @@ export async function updateBookingStatus(
 
 export async function getDashboardStats(): Promise<DashboardStats> {
   try {
-    const res = await fetch(`${API_BASE_URL}/dashboard/stats`, { cache: "no-store" });
+    const res = await fetch(`${API_BASE_URL}/admin/dashboard/stats`, {
+      cache: "no-store",
+      headers: authHeaders(),
+    });
     if (!res.ok) throw new Error("Error fetching stats");
     const json = await res.json();
     return json.data;
@@ -251,5 +353,48 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       pending_bookings: 2,
       total_revenue: 1450000,
     };
+  }
+}
+
+// Admin Bike CRUD
+export async function adminCreateBike(data: Partial<Bike>): Promise<{ success: boolean; data?: Bike; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/bikes`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Gagal menambah motor");
+    return { success: true, data: json.data };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Error" };
+  }
+}
+
+export async function adminUpdateBike(id: number, data: Partial<Bike>): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/bikes/${id}`, {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify(data),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Gagal memperbarui motor");
+    return { success: true };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Error" };
+  }
+}
+
+export async function adminDeleteBike(id: number): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/bikes/${id}`, {
+      method: "DELETE",
+      headers: authHeaders(),
+    });
+    return res.ok;
+  } catch {
+    return false;
   }
 }

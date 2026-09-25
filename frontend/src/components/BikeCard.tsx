@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Bike } from "@/types";
 
 interface BikeCardProps {
@@ -25,7 +26,7 @@ export default function BikeCard({ bike, onSelect, variant = "standard" }: BikeC
     return (
       <div className="group rounded-2xl bg-white border border-sand-200 hover:border-sand-300 transition-all duration-300 overflow-hidden shadow-warm-md flex flex-col lg:grid lg:grid-cols-12">
         {/* Large Bleed / DoF Photo Container */}
-        <div className="relative lg:col-span-7 aspect-[16/10] lg:aspect-auto w-full overflow-hidden bg-sand-100">
+        <Link href={`/motor/${bike.id}`} className="relative lg:col-span-7 aspect-[16/10] lg:aspect-auto w-full overflow-hidden bg-sand-100 block">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={bike.image_url}
@@ -48,7 +49,7 @@ export default function BikeCard({ bike, onSelect, variant = "standard" }: BikeC
               </span>
             </div>
           )}
-        </div>
+        </Link>
 
         {/* Content Column */}
         <div className="lg:col-span-5 p-6 sm:p-8 flex flex-col justify-between space-y-6">
@@ -62,9 +63,11 @@ export default function BikeCard({ bike, onSelect, variant = "standard" }: BikeC
               </span>
             </div>
 
-            <h3 className="font-serif text-2xl sm:text-3xl text-ink font-bold group-hover:text-rust transition-colors leading-snug">
-              {bike.name}
-            </h3>
+            <Link href={`/motor/${bike.id}`} className="block">
+              <h3 className="font-serif text-2xl sm:text-3xl text-ink font-bold group-hover:text-rust transition-colors leading-snug">
+                {bike.name}
+              </h3>
+            </Link>
 
             {/* Natural Sentence Meta */}
             <p className="text-xs sm:text-sm text-moss font-medium">
@@ -123,7 +126,7 @@ export default function BikeCard({ bike, onSelect, variant = "standard" }: BikeC
   return (
     <div className="group rounded-xl bg-white border border-sand-200 hover:border-sand-300 transition-all duration-300 flex flex-col overflow-hidden shadow-warm-sm hover:shadow-warm-md">
       {/* Gambar Motor */}
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-sand-100">
+      <Link href={`/motor/${bike.id}`} className="relative aspect-[16/10] w-full overflow-hidden bg-sand-100 block">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={bike.image_url}
@@ -138,7 +141,7 @@ export default function BikeCard({ bike, onSelect, variant = "standard" }: BikeC
             </span>
           </div>
         )}
-      </div>
+      </Link>
 
       {/* Content */}
       <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
@@ -153,9 +156,11 @@ export default function BikeCard({ bike, onSelect, variant = "standard" }: BikeC
             </span>
           </div>
 
-          <h3 className="font-serif text-lg font-bold text-ink mt-1 group-hover:text-rust transition-colors leading-snug">
-            {bike.name}
-          </h3>
+          <Link href={`/motor/${bike.id}`}>
+            <h3 className="font-serif text-lg font-bold text-ink mt-1 group-hover:text-rust transition-colors leading-snug">
+              {bike.name}
+            </h3>
+          </Link>
 
           {/* Natural Sentence Meta */}
           <p className="text-xs text-moss font-medium mt-1">

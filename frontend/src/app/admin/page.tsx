@@ -2,19 +2,86 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bike, Booking, DashboardStats } from "@/types";
-import { getBikes, getBookings, getDashboardStats, updateBookingStatus } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { Bike, Booking, DashboardStats, User } from "@/types";
+import {
+  getBikes,
+  getBookings,
+  getDashboardStats,
+  updateBookingStatus,
+  getStoredUser,
+  getStoredToken,
+  clearAuth,
+  adminCreateBike,
+  adminUpdateBike,
+  adminDeleteBike,
+} from "@/lib/api";
 import {
   ArrowLeft,
   RefreshCw,
+  LogOut,
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  Save,
 } from "lucide-react";
 
 export default function AdminPage() {
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bikes, setBikes] = useState<Bike[]>([]);
   const [activeTab, setActiveTab] = useState<"bookings" | "bikes">("bookings");
   const [loading, setLoading] = useState(true);
+
+  // Bike form state
+  const [showBikeForm, setShowBikeForm] = useState(false);
+  const [editingBike, setEditingBike] = useState<Bike | null>(null);
+  const [bikeForm, setBikeForm] = useState<{
+    name: string;
+    brand: string;
+    category: string;
+    engine_cc: number;
+    year: number;
+    transmission: string;
+    price_per_day: number;
+    plate_number: string;
+    image_url: string;
+    features: string;
+    description: string;
+    status: "available" | "rented" | "maintenance";
+  }>({
+    name: "",
+    brand: "Honda",
+    category: "Matic Compact",
+    engine_cc: 110,
+    year: 2024,
+    transmission: "Automatic",
+    price_per_day: 100000,
+    plate_number: "",
+    image_url: "",
+    features: "",
+    description: "",
+    status: "available",
+  });
+  const [formError, setFormError] = useState("");
+  const [formLoading, setFormLoading] = useState(false);
+
+  // Check auth on mount
+  useEffect(() => {
+    const token = getStoredToken();
+    const storedUser = getStoredUser();
+    if (!token || !storedUser || storedUser.role !== "admin") {
+      router.push("/login");
+      return;
+    }
+    setUser(storedUser);
+    setAuthChecked(true);
+  }, [router]);
 
   const loadData = async () => {
     setLoading(true);
@@ -30,8 +97,13 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (authChecked) loadData();
+  }, [authChecked]);
+
+  const handleLogout = () => {
+    clearAuth();
+    router.push("/login");
+  };
 
   const handleUpdateStatus = async (
     bookingId: number,
@@ -53,6 +125,91 @@ export default function AdminPage() {
     }).format(val);
   };
 
+  // Bike CRUD handlers
+  const openCreateForm = () => {
+    setEditingBike(null);
+    setBikeForm({
+      name: "",
+      brand: "Honda",
+      category: "Matic Compact",
+      engine_cc: 110,
+      year: 2024,
+      transmission: "Automatic",
+      price_per_day: 100000,
+      plate_number: "",
+      image_url: "",
+      features: "",
+      description: "",
+      status: "available",
+    });
+    setFormError("");
+    setShowBikeForm(true);
+  };
+
+  const openEditForm = (bike: Bike) => {
+    setEditingBike(bike);
+    setBikeForm({
+      name: bike.name,
+      brand: bike.brand,
+      category: bike.category,
+      engine_cc: bike.engine_cc,
+      year: bike.year,
+      transmission: bike.transmission,
+      price_per_day: bike.price_per_day,
+      plate_number: bike.plate_number,
+      image_url: bike.image_url,
+      features: bike.features,
+      description: bike.description,
+      status: bike.status,
+    });
+    setFormError("");
+    setShowBikeForm(true);
+  };
+
+  const handleSaveBike = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bikeForm.name || !bikeForm.plate_number) {
+      setFormError("Nama motor dan nomor plat wajib diisi");
+      return;
+    }
+    setFormLoading(true);
+    setFormError("");
+
+    if (editingBike) {
+      const res = await adminUpdateBike(editingBike.id, bikeForm);
+      if (!res.success) {
+        setFormError(res.error || "Gagal memperbarui");
+        setFormLoading(false);
+        return;
+      }
+    } else {
+      const res = await adminCreateBike(bikeForm);
+      if (!res.success) {
+        setFormError(res.error || "Gagal menambah motor");
+        setFormLoading(false);
+        return;
+      }
+    }
+
+    setFormLoading(false);
+    setShowBikeForm(false);
+    loadData();
+  };
+
+  const handleDeleteBike = async (id: number, name: string) => {
+    if (!confirm(`Yakin hapus motor "${name}" dari armada?`)) return;
+    await adminDeleteBike(id);
+    loadData();
+  };
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-base flex items-center justify-center">
+        <div className="animate-pulse text-ink-muted text-sm">Memeriksa autentikasi...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-base text-ink flex flex-col font-sans">
       {/* Admin Navbar */}
@@ -72,13 +229,25 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <button
-            onClick={loadData}
-            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-sand-100 hover:bg-sand-200 text-xs font-medium text-ink transition shadow-warm-sm"
-          >
-            <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin text-rust" : ""}`} />
-            <span>Refresh Data</span>
-          </button>
+          <div className="flex items-center space-x-3">
+            <span className="hidden sm:inline text-xs text-ink-muted">
+              {user?.name} ({user?.email})
+            </span>
+            <button
+              onClick={loadData}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-sand-100 hover:bg-sand-200 text-xs font-medium text-ink transition shadow-warm-sm"
+            >
+              <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin text-rust" : ""}`} />
+              <span>Refresh</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-rust/10 hover:bg-rust/20 text-rust text-xs font-medium transition"
+            >
+              <LogOut className="w-3 h-3" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -264,48 +433,167 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Tab 2: Bikes Management */}
+        {/* Tab 2: Bikes Management with CRUD */}
         {activeTab === "bikes" && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {bikes.map((bike) => (
-              <div
-                key={bike.id}
-                className="p-4 rounded-xl bg-white border border-sand-200 shadow-warm-sm flex flex-col justify-between space-y-3"
+          <div>
+            {/* Add bike button */}
+            <div className="mb-4">
+              <button
+                onClick={openCreateForm}
+                className="flex items-center space-x-1.5 px-4 py-2 rounded-lg bg-rust hover:bg-rust-hover text-white text-xs font-medium transition shadow-warm-sm"
               >
-                <div className="flex space-x-3.5">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={bike.image_url}
-                    alt={bike.name}
-                    className="w-20 h-20 rounded-lg object-cover bg-sand-100 shrink-0"
-                  />
-                  <div>
-                    <h4 className="font-serif font-bold text-ink text-sm leading-snug">{bike.name}</h4>
-                    <p className="font-serif text-sm text-rust font-bold mt-0.5">{formatRupiah(bike.price_per_day)} <span className="font-sans text-xs text-ink-muted font-normal">/ hari</span></p>
-                    <p className="text-[11px] text-ink-muted mt-1">Plat: {bike.plate_number}</p>
-                    <span
-                      className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-medium mt-1 ${
-                        bike.status === "available"
-                          ? "bg-moss/10 text-moss border border-moss/20"
-                          : bike.status === "rented"
-                          ? "bg-rust/10 text-rust border border-rust/20"
-                          : "bg-sand-200 text-ink-muted border border-sand-300"
-                      }`}
-                    >
-                      {bike.status === "available" ? "Tersedia" : bike.status === "rented" ? "Disewa" : "Jadwal Servis"}
-                    </span>
+                <Plus className="w-3.5 h-3.5" />
+                <span>Tambah Motor Baru</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {bikes.map((bike) => (
+                <div
+                  key={bike.id}
+                  className="p-4 rounded-xl bg-white border border-sand-200 shadow-warm-sm flex flex-col justify-between space-y-3"
+                >
+                  <div className="flex space-x-3.5">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={bike.image_url}
+                      alt={bike.name}
+                      className="w-20 h-20 rounded-lg object-cover bg-sand-100 shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-serif font-bold text-ink text-sm leading-snug">{bike.name}</h4>
+                      <p className="font-serif text-sm text-rust font-bold mt-0.5">{formatRupiah(bike.price_per_day)} <span className="font-sans text-xs text-ink-muted font-normal">/ hari</span></p>
+                      <p className="text-[11px] text-ink-muted mt-1">Plat: {bike.plate_number}</p>
+                      <span
+                        className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-medium mt-1 ${
+                          bike.status === "available"
+                            ? "bg-moss/10 text-moss border border-moss/20"
+                            : bike.status === "rented"
+                            ? "bg-rust/10 text-rust border border-rust/20"
+                            : "bg-sand-200 text-ink-muted border border-sand-300"
+                        }`}
+                      >
+                        {bike.status === "available" ? "Tersedia" : bike.status === "rented" ? "Disewa" : "Jadwal Servis"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-ink-muted border-t border-sand-200 pt-2 flex justify-between items-center">
+                    <span>{bike.engine_cc}cc {bike.transmission.toLowerCase()} · {bike.brand}</span>
+                    <div className="flex items-center space-x-1">
+                      <button
+                        onClick={() => openEditForm(bike)}
+                        className="p-1.5 rounded-lg hover:bg-sand-100 text-ink-muted hover:text-rust transition"
+                        title="Edit Motor"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteBike(bike.id, bike.name)}
+                        className="p-1.5 rounded-lg hover:bg-rust/10 text-ink-muted hover:text-rust transition"
+                        title="Hapus Motor"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                <div className="text-[11px] text-ink-muted border-t border-sand-200 pt-2 flex justify-between">
-                  <span>{bike.engine_cc}cc {bike.transmission.toLowerCase()}</span>
-                  <span className="font-medium text-ink">{bike.brand}</span>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </main>
+
+      {/* Bike Create/Edit Modal */}
+      {showBikeForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm overflow-y-auto">
+          <div className="relative w-full max-w-lg bg-white border border-sand-200 rounded-2xl shadow-warm-lg overflow-hidden my-8">
+            <div className="flex items-center justify-between p-5 border-b border-sand-200 bg-sand-50/50">
+              <h2 className="font-serif text-xl font-bold text-ink">
+                {editingBike ? "Edit Unit Motor" : "Tambah Motor Baru"}
+              </h2>
+              <button onClick={() => setShowBikeForm(false)} className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-sand-200 transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBike} className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              {formError && (
+                <div className="p-2.5 rounded-lg bg-rust/10 border border-rust/30 text-rust text-xs font-medium">{formError}</div>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-ink mb-1">Nama Motor *</label>
+                  <input type="text" value={bikeForm.name} onChange={(e) => setBikeForm({ ...bikeForm, name: e.target.value })} placeholder="Honda PCX 160 ABS" className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition" required />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-ink mb-1">Brand</label>
+                  <select value={bikeForm.brand} onChange={(e) => setBikeForm({ ...bikeForm, brand: e.target.value })} className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition">
+                    <option>Honda</option><option>Yamaha</option><option>Vespa</option><option>Kawasaki</option><option>Suzuki</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-ink mb-1">Kategori</label>
+                  <select value={bikeForm.category} onChange={(e) => setBikeForm({ ...bikeForm, category: e.target.value })} className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition">
+                    <option>Maxi Scooter</option><option>Matic Compact</option><option>Classic &amp; Lifestyle</option><option>Sport Matic</option><option>Retro Matic</option><option>Big Maxi</option><option>Dual Sport / Trail</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-ink mb-1">CC Mesin</label>
+                  <input type="number" value={bikeForm.engine_cc} onChange={(e) => setBikeForm({ ...bikeForm, engine_cc: Number(e.target.value) })} className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-ink mb-1">Tahun</label>
+                  <input type="number" value={bikeForm.year} onChange={(e) => setBikeForm({ ...bikeForm, year: Number(e.target.value) })} className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-ink mb-1">Transmisi</label>
+                  <select value={bikeForm.transmission} onChange={(e) => setBikeForm({ ...bikeForm, transmission: e.target.value })} className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition">
+                    <option>Automatic</option><option>Manual</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-ink mb-1">Harga / Hari (Rp)</label>
+                  <input type="number" value={bikeForm.price_per_day} onChange={(e) => setBikeForm({ ...bikeForm, price_per_day: Number(e.target.value) })} className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition" />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-ink mb-1">Nomor Plat *</label>
+                  <input type="text" value={bikeForm.plate_number} onChange={(e) => setBikeForm({ ...bikeForm, plate_number: e.target.value })} placeholder="B 1234 XYZ" className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition" required />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-ink mb-1">Status</label>
+                  <select value={bikeForm.status} onChange={(e) => setBikeForm({ ...bikeForm, status: e.target.value as "available" | "rented" | "maintenance" })} className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition">
+                    <option value="available">Tersedia</option><option value="rented">Disewa</option><option value="maintenance">Servis</option>
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-ink mb-1">URL Gambar</label>
+                  <input type="url" value={bikeForm.image_url} onChange={(e) => setBikeForm({ ...bikeForm, image_url: e.target.value })} placeholder="https://..." className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition" />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-ink mb-1">Fitur (pisahkan koma)</label>
+                  <input type="text" value={bikeForm.features} onChange={(e) => setBikeForm({ ...bikeForm, features: e.target.value })} placeholder="2 Helm SNI, Jas Hujan, Phone Holder" className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition" />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-ink mb-1">Deskripsi</label>
+                  <textarea value={bikeForm.description} onChange={(e) => setBikeForm({ ...bikeForm, description: e.target.value })} rows={3} className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition resize-none" />
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center space-x-3">
+                <button type="submit" disabled={formLoading} className="flex-1 flex items-center justify-center space-x-1.5 py-2.5 rounded-xl bg-rust hover:bg-rust-hover text-white font-medium text-xs transition shadow-warm-sm disabled:opacity-50">
+                  <Save className="w-3.5 h-3.5" />
+                  <span>{formLoading ? "Menyimpan..." : editingBike ? "Perbarui Motor" : "Simpan Motor Baru"}</span>
+                </button>
+                <button type="button" onClick={() => setShowBikeForm(false)} className="px-4 py-2.5 rounded-xl bg-sand-100 hover:bg-sand-200 text-ink-muted font-medium text-xs transition">
+                  Batal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

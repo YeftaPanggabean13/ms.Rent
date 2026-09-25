@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
+import { getStoredUser } from "@/lib/api";
+import { User } from "@/types";
 
 interface NavbarProps {
   onOpenCheckBooking: () => void;
@@ -10,6 +12,11 @@ interface NavbarProps {
 
 export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    setUser(getStoredUser());
+  }, []);
 
   return (
     <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-base/90 border-b border-sand-200">
@@ -46,10 +53,10 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
             Lacak Reservasi
           </button>
           <Link
-            href="/admin"
+            href={user?.role === "admin" ? "/admin" : "/login"}
             className="text-xs font-medium text-ink-muted hover:text-ink px-2.5 py-2 transition-colors"
           >
-            Admin
+            {user?.role === "admin" ? "Dashboard" : "Login"}
           </Link>
           <a
             href="https://wa.me/6281234567890?text=Halo%20ms.Rent,%20saya%20ingin%20tanya%20sewa%20motor"
@@ -105,11 +112,11 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
               Ketentuan & Tarif
             </Link>
             <Link
-              href="/admin"
+              href={user?.role === "admin" ? "/admin" : "/login"}
               onClick={() => setMobileMenuOpen(false)}
               className="py-1 text-ink-muted hover:text-ink"
             >
-              Dashboard Admin
+              {user?.role === "admin" ? "Dashboard Admin" : "Login Admin"}
             </Link>
           </div>
           <div className="pt-3 border-t border-sand-200 flex flex-col space-y-2">

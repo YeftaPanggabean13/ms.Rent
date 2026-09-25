@@ -52,3 +52,27 @@ export interface DashboardStats {
   pending_bookings: number;
   total_revenue: number;
 }
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: 'admin' | 'customer';
+  phone: string;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  message: string;
+  data: {
+    token: string;
+    user: User;
+  };
+}
+
+export interface CalendarData {
+  success: boolean;
+  bike_id: string;
+  month: string;
+  booked_dates: Record<string, string>; // date -> booking status
+}
