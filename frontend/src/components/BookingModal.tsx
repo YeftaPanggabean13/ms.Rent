@@ -3,7 +3,7 @@
 import { useState, useId } from "react";
 import { Bike, Booking } from "@/types";
 import { createBooking } from "@/lib/api";
-import { X, Calendar, User, Phone, CreditCard, MapPin, CheckCircle, Copy, Check, MessageSquare } from "lucide-react";
+import { X, Copy, Check } from "lucide-react";
 
 interface BookingModalProps {
   bike: Bike | null;
@@ -113,19 +113,19 @@ export default function BookingModal({ bike, onClose, onSuccess }: BookingModalP
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden my-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm overflow-y-auto">
+      <div className="relative w-full max-w-xl bg-white border border-sand-200 rounded-2xl shadow-warm-lg overflow-hidden my-8">
         {/* Header Modal */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-800 bg-slate-900/50">
+        <div className="flex items-center justify-between p-6 border-b border-sand-200 bg-sand-50/50">
           <div>
-            <span className="text-xs font-semibold uppercase tracking-wider text-brand-400">
-              Formulir Reservasi Motor
+            <span className="text-xs font-semibold text-rust tracking-wide">
+              Reservasi Unit Motor
             </span>
-            <h2 className="text-xl font-bold text-white">{bike.name}</h2>
+            <h2 className="font-serif text-2xl font-bold text-ink mt-0.5">{bike.name}</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-sand-200 transition"
           >
             <X className="w-5 h-5" />
           </button>
@@ -133,67 +133,67 @@ export default function BookingModal({ bike, onClose, onSuccess }: BookingModalP
 
         {/* Content State: Sukses Booking */}
         {createdBooking ? (
-          <div className="p-8 text-center space-y-6">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center mx-auto">
-              <CheckCircle className="w-10 h-10" />
-            </div>
-
+          <div className="p-6 sm:p-8 text-center space-y-6">
             <div className="space-y-2">
-              <h3 className="text-2xl font-black text-white">Booking Berhasil Dibuat!</h3>
-              <p className="text-sm text-slate-300 max-w-md mx-auto">
-                Terima kasih, data reservasi Anda telah tersimpan. Silakan simpan Kode Booking berikut untuk pelacakan.
+              <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-moss/10 text-moss border border-moss/20">
+                Pemesanan Tercatat
+              </span>
+              <h3 className="font-serif text-2xl font-bold text-ink">Reservasi Siap Dikonfirmasi</h3>
+              <p className="text-xs sm:text-sm text-ink-muted max-w-sm mx-auto leading-relaxed">
+                Simpan Kode Reservasi di bawah ini untuk pelacakan status unit dan verifikasi garasi kami.
               </p>
             </div>
 
             {/* Kode Booking Card */}
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between max-w-md mx-auto">
+            <div className="p-4 rounded-xl bg-sand-50 border border-sand-200 flex items-center justify-between max-w-md mx-auto">
               <div className="text-left">
-                <span className="text-xs text-slate-400 font-medium">Kode Booking Anda:</span>
-                <p className="text-lg font-mono font-bold text-brand-400">{createdBooking.booking_code}</p>
+                <span className="text-[11px] text-ink-muted font-medium">Kode Reservasi:</span>
+                <p className="text-lg font-bold text-ink tracking-wider">{createdBooking.booking_code}</p>
               </div>
               <button
                 onClick={handleCopyCode}
-                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
+                className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-white border border-sand-200 hover:bg-sand-100 text-ink text-xs font-medium transition shadow-warm-sm"
               >
-                {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{copiedCode ? "Tersalin!" : "Salin"}</span>
+                {copiedCode ? <Check className="w-3.5 h-3.5 text-moss" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedCode ? "Tersalin" : "Salin"}</span>
               </button>
             </div>
 
             {/* Rincian Singkat */}
-            <div className="text-left bg-slate-800/40 p-4 rounded-2xl border border-slate-800 text-xs space-y-2 max-w-md mx-auto">
-              <div className="flex justify-between">
-                <span className="text-slate-400">Unit:</span>
-                <span className="text-white font-medium">{bike.name}</span>
+            <div className="text-left bg-sand-50/70 p-5 rounded-xl border border-sand-200 text-xs space-y-2.5 max-w-md mx-auto">
+              <div className="flex justify-between text-ink-muted">
+                <span>Unit Motor:</span>
+                <span className="text-ink font-semibold">{bike.name}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Durasi:</span>
-                <span className="text-white font-medium">{days} Hari ({startDate} s/d {endDate})</span>
+              <div className="flex justify-between text-ink-muted">
+                <span>Durasi Sewa:</span>
+                <span className="text-ink font-medium">{days} Hari ({startDate} s/d {endDate})</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">Layanan:</span>
-                <span className="text-white font-medium">{deliveryType === "delivery" ? "Antar ke Lokasi" : "Ambil di Garasi"}</span>
+              <div className="flex justify-between text-ink-muted">
+                <span>Metode Penyerahan:</span>
+                <span className="text-ink font-medium">
+                  {deliveryType === "delivery" ? "Antar ke Lokasi Pemesan" : "Ambil Sendiri di Garasi"}
+                </span>
               </div>
-              <div className="flex justify-between pt-2 border-t border-slate-700/60 font-semibold text-sm">
-                <span className="text-slate-300">Total Biaya:</span>
-                <span className="text-brand-400 font-bold">{formatRupiah(grandTotal)}</span>
+              <div className="flex justify-between pt-3 border-t border-sand-200 font-semibold text-sm">
+                <span className="text-ink-light">Total Pembayaran:</span>
+                <span className="font-serif text-lg font-bold text-rust">{formatRupiah(grandTotal)}</span>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="space-y-3 pt-2 max-w-md mx-auto">
+            <div className="space-y-2.5 pt-2 max-w-md mx-auto">
               <a
                 href={getWaLink()}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center justify-center space-x-2 py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg shadow-emerald-600/30 transition"
+                className="w-full block py-3 rounded-xl bg-rust hover:bg-rust-hover text-white font-medium text-xs sm:text-sm transition shadow-warm-sm text-center"
               >
-                <MessageSquare className="w-5 h-5" />
-                <span>Konfirmasi via WhatsApp Sekarang</span>
+                Konfirmasi via WhatsApp Sekarang
               </a>
               <button
                 onClick={onClose}
-                className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-sm transition"
+                className="w-full py-2.5 rounded-xl bg-sand-100 hover:bg-sand-200 text-ink-light font-medium text-xs transition"
               >
                 Tutup Jendela
               </button>
@@ -201,9 +201,9 @@ export default function BookingModal({ bike, onClose, onSuccess }: BookingModalP
           </div>
         ) : (
           /* Form Booking */
-          <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          <form onSubmit={handleSubmit} className="p-6 space-y-5">
             {errorMsg && (
-              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-medium">
+              <div className="p-3 rounded-lg bg-rust/10 border border-rust/30 text-rust text-xs font-medium">
                 {errorMsg}
               </div>
             )}
@@ -211,9 +211,8 @@ export default function BookingModal({ bike, onClose, onSuccess }: BookingModalP
             {/* Tanggal Sewa */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor={`${formId}-start-date`} className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center space-x-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-brand-400" />
-                  <span>Tanggal Mulai Sewa</span>
+                <label htmlFor={`${formId}-start-date`} className="block text-xs font-medium text-ink mb-1.5">
+                  Tanggal Mulai Sewa
                 </label>
                 <input
                   id={`${formId}-start-date`}
@@ -221,15 +220,14 @@ export default function BookingModal({ bike, onClose, onSuccess }: BookingModalP
                   min={today}
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-brand-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-ink text-xs focus:outline-none focus:border-rust focus:bg-white transition"
                   required
                 />
               </div>
 
               <div>
-                <label htmlFor={`${formId}-end-date`} className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center space-x-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Tanggal Selesai Sewa</span>
+                <label htmlFor={`${formId}-end-date`} className="block text-xs font-medium text-ink mb-1.5">
+                  Tanggal Selesai ({days} Hari)
                 </label>
                 <input
                   id={`${formId}-end-date`}
@@ -237,20 +235,19 @@ export default function BookingModal({ bike, onClose, onSuccess }: BookingModalP
                   min={startDate}
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-brand-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-ink text-xs focus:outline-none focus:border-rust focus:bg-white transition"
                   required
                 />
               </div>
             </div>
 
             {/* Data Penyewa */}
-            <div className="space-y-3 pt-2 border-t border-slate-800">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Data Penyewa</h4>
+            <div className="space-y-3 pt-3 border-t border-sand-200">
+              <span className="text-xs font-semibold text-ink">Identitas Pemesan</span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor={`${formId}-name`} className="block text-xs text-slate-300 mb-1 flex items-center space-x-1">
-                    <User className="w-3 h-3 text-brand-400" />
-                    <span>Nama Lengkap (sesuai KTP)</span>
+                  <label htmlFor={`${formId}-name`} className="block text-xs text-ink-muted mb-1">
+                    Nama Lengkap Sesuai KTP
                   </label>
                   <input
                     id={`${formId}-name`}
@@ -258,15 +255,14 @@ export default function BookingModal({ bike, onClose, onSuccess }: BookingModalP
                     placeholder="Contoh: Budi Santoso"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-brand-500 focus:outline-none"
+                    className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-ink text-xs focus:outline-none focus:border-rust focus:bg-white transition"
                     required
                   />
                 </div>
 
                 <div>
-                  <label htmlFor={`${formId}-phone`} className="block text-xs text-slate-300 mb-1 flex items-center space-x-1">
-                    <Phone className="w-3 h-3 text-brand-400" />
-                    <span>Nomor WhatsApp Aktif</span>
+                  <label htmlFor={`${formId}-phone`} className="block text-xs text-ink-muted mb-1">
+                    Nomor WhatsApp Aktif
                   </label>
                   <input
                     id={`${formId}-phone`}
@@ -274,44 +270,47 @@ export default function BookingModal({ bike, onClose, onSuccess }: BookingModalP
                     placeholder="081234567890"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-brand-500 focus:outline-none"
+                    className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-ink text-xs focus:outline-none focus:border-rust focus:bg-white transition"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor={`${formId}-id-card`} className="block text-xs text-slate-300 mb-1 flex items-center space-x-1">
-                  <CreditCard className="w-3 h-3 text-brand-400" />
-                  <span>Nomor KTP / Paspor</span>
+                <label htmlFor={`${formId}-id-card`} className="block text-xs text-ink-muted mb-1">
+                  Nomor KTP / Paspor
                 </label>
                 <input
                   id={`${formId}-id-card`}
                   type="text"
-                  placeholder="3271xxxxxxxxxxxx"
+                  placeholder="Nomor identitas sah"
                   value={idCard}
                   onChange={(e) => setIdCard(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-brand-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-ink text-xs focus:outline-none focus:border-rust focus:bg-white transition"
                   required
                 />
               </div>
             </div>
 
             {/* Opsi Pengambilan */}
-            <div className="space-y-3 pt-2 border-t border-slate-800">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Metode Pengambilan Motor</h4>
+            <div className="space-y-3 pt-3 border-t border-sand-200">
+              <span className="text-xs font-semibold text-ink">Metode Penyerahan Unit</span>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => setDeliveryType("self")}
                   className={`p-3 rounded-xl border text-left transition ${
                     deliveryType === "self"
-                      ? "border-brand-500 bg-brand-500/10 text-white"
-                      : "border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700"
+                      ? "border-rust bg-rust/5 ring-1 ring-rust"
+                      : "border-sand-200 bg-sand-50 text-ink-muted hover:border-sand-300"
                   }`}
                 >
-                  <div className="font-semibold text-xs text-white">Ambil Sendiri di Garasi</div>
-                  <div className="text-[11px] text-slate-400 mt-0.5">Gratis (Showroom ms.Rent)</div>
+                  <div className={`font-semibold text-xs ${deliveryType === "self" ? "text-rust" : "text-ink"}`}>
+                    Ambil di Garasi
+                  </div>
+                  <div className={`text-[11px] mt-0.5 ${deliveryType === "self" ? "text-ink-muted" : "text-ink-faint"}`}>
+                    Gratis (Garasi ms.Rent)
+                  </div>
                 </button>
 
                 <button
@@ -319,55 +318,57 @@ export default function BookingModal({ bike, onClose, onSuccess }: BookingModalP
                   onClick={() => setDeliveryType("delivery")}
                   className={`p-3 rounded-xl border text-left transition ${
                     deliveryType === "delivery"
-                      ? "border-brand-500 bg-brand-500/10 text-white"
-                      : "border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700"
+                      ? "border-rust bg-rust/5 ring-1 ring-rust"
+                      : "border-sand-200 bg-sand-50 text-ink-muted hover:border-sand-300"
                   }`}
                 >
-                  <div className="font-semibold text-xs text-white">Antar ke Lokasi</div>
-                  <div className="text-[11px] text-brand-400 mt-0.5">+Rp 35.000 (Stasiun/Hotel)</div>
+                  <div className={`font-semibold text-xs ${deliveryType === "delivery" ? "text-rust" : "text-ink"}`}>
+                    Antar ke Lokasi
+                  </div>
+                  <div className={`text-[11px] mt-0.5 ${deliveryType === "delivery" ? "text-rust font-medium" : "text-ink-faint"}`}>
+                    +Rp 35.000 (Stasiun/Hotel)
+                  </div>
                 </button>
               </div>
 
               {deliveryType === "delivery" && (
                 <div>
-                  <label htmlFor={`${formId}-delivery-address`} className="block text-xs text-slate-300 mb-1 flex items-center space-x-1">
-                    <MapPin className="w-3 h-3 text-brand-400" />
-                    <span>Alamat Lengkap Pengantaran (Nama Hotel / Stasiun)</span>
+                  <label htmlFor={`${formId}-delivery-address`} className="block text-xs text-ink-muted mb-1">
+                    Alamat Pengantaran (Nama Stasiun / Hotel / Alamat Lengkap)
                   </label>
                   <input
                     id={`${formId}-delivery-address`}
                     type="text"
-                    placeholder="Contoh: Hotel Grand Dafam, Lobby Depan"
+                    placeholder="Contoh: Lobby Hotel Santika, atau Pintu Timur Stasiun Gambir"
                     value={deliveryAddress}
                     onChange={(e) => setDeliveryAddress(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:border-brand-500 focus:outline-none"
+                    className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-ink text-xs focus:outline-none focus:border-rust focus:bg-white transition"
                     required={deliveryType === "delivery"}
                   />
                 </div>
               )}
             </div>
 
-            {/* Tambahan & Fasilitas */}
-            <div className="space-y-3 pt-2 border-t border-slate-800">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Tambahan Opsional</h4>
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs">
+            {/* Tambahan Opsional */}
+            <div className="pt-3 border-t border-sand-200">
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-sand-50 border border-sand-200 text-xs">
                 <div>
-                  <span className="font-semibold text-white block">Helm Tambahan (+Rp 15.000/hari)</span>
-                  <span className="text-slate-400 text-[11px]">Standar sewa sudah termasuk 1 Helm SNI</span>
+                  <span className="font-medium text-ink block">Helm Tambahan (+Rp 15.000/hari)</span>
+                  <span className="text-ink-muted text-[11px]">Setiap sewa sudah termasuk gratis 2 Helm SNI</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <button
                     type="button"
                     onClick={() => setExtraHelmets(Math.max(0, extraHelmets - 1))}
-                    className="w-7 h-7 rounded-lg bg-slate-800 text-white font-bold hover:bg-slate-700"
+                    className="w-7 h-7 rounded-lg bg-white border border-sand-200 text-ink font-semibold hover:bg-sand-100 text-xs transition"
                   >
                     -
                   </button>
-                  <span className="text-sm font-semibold w-4 text-center text-white">{extraHelmets}</span>
+                  <span className="text-xs font-semibold w-4 text-center text-ink">{extraHelmets}</span>
                   <button
                     type="button"
                     onClick={() => setExtraHelmets(Math.min(2, extraHelmets + 1))}
-                    className="w-7 h-7 rounded-lg bg-slate-800 text-white font-bold hover:bg-slate-700"
+                    className="w-7 h-7 rounded-lg bg-white border border-sand-200 text-ink font-semibold hover:bg-sand-100 text-xs transition"
                   >
                     +
                   </button>
@@ -376,37 +377,37 @@ export default function BookingModal({ bike, onClose, onSuccess }: BookingModalP
             </div>
 
             {/* Rincian Biaya */}
-            <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2 text-xs">
-              <div className="flex justify-between text-slate-400">
+            <div className="p-4 rounded-xl bg-sand-50 border border-sand-200 space-y-2 text-xs">
+              <div className="flex justify-between text-ink-muted">
                 <span>Sewa {bike.name} ({days} hari)</span>
-                <span className="text-white font-medium">{formatRupiah(rentalBaseCost)}</span>
+                <span className="text-ink font-medium">{formatRupiah(rentalBaseCost)}</span>
               </div>
               {deliveryCost > 0 && (
-                <div className="flex justify-between text-slate-400">
-                  <span>Ongkir Antar-Jemput</span>
-                  <span className="text-white font-medium">{formatRupiah(deliveryCost)}</span>
+                <div className="flex justify-between text-ink-muted">
+                  <span>Ongkos Antar-Jemput</span>
+                  <span className="text-ink font-medium">{formatRupiah(deliveryCost)}</span>
                 </div>
               )}
               {extraHelmetCost > 0 && (
-                <div className="flex justify-between text-slate-400">
+                <div className="flex justify-between text-ink-muted">
                   <span>Helm Tambahan ({extraHelmets} unit x {days} hari)</span>
-                  <span className="text-white font-medium">{formatRupiah(extraHelmetCost)}</span>
+                  <span className="text-ink font-medium">{formatRupiah(extraHelmetCost)}</span>
                 </div>
               )}
-              <div className="pt-2 border-t border-slate-800 flex justify-between items-baseline">
-                <span className="font-bold text-white text-sm">Total Estimasi Biaya</span>
-                <span className="font-black text-xl text-brand-400">{formatRupiah(grandTotal)}</span>
+              <div className="pt-2.5 border-t border-sand-200 flex justify-between items-baseline">
+                <span className="font-semibold text-ink text-xs">Estimasi Total Pembayaran</span>
+                <span className="font-serif font-bold text-lg text-rust">{formatRupiah(grandTotal)}</span>
               </div>
             </div>
 
             {/* Submit Button */}
-            <div className="pt-2">
+            <div className="pt-1">
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3.5 rounded-xl font-bold text-sm bg-gradient-to-r from-brand-500 to-amber-500 hover:from-brand-600 hover:to-amber-600 text-white shadow-lg shadow-brand-500/25 active:scale-[0.99] transition disabled:opacity-50"
+                className="w-full py-3 rounded-xl font-medium text-xs sm:text-sm bg-rust hover:bg-rust-hover text-white transition disabled:opacity-50 shadow-warm-sm"
               >
-                {loading ? "Memproses Reservasi..." : `Konfirmasi Booking Sekarang (${formatRupiah(grandTotal)})`}
+                {loading ? "Memproses Data..." : `Konfirmasi Reservasi (${formatRupiah(grandTotal)})`}
               </button>
             </div>
           </form>

@@ -1,14 +1,14 @@
 "use client";
 
 import { Bike } from "@/types";
-import { Gauge, Zap, CheckCircle2, ShieldAlert } from "lucide-react";
 
 interface BikeCardProps {
   bike: Bike;
   onSelect: (bike: Bike) => void;
+  variant?: "spotlight" | "standard";
 }
 
-export default function BikeCard({ bike, onSelect }: BikeCardProps) {
+export default function BikeCard({ bike, onSelect, variant = "standard" }: BikeCardProps) {
   const isAvailable = bike.status === "available";
 
   const formatRupiah = (val: number) => {
@@ -21,109 +21,185 @@ export default function BikeCard({ bike, onSelect }: BikeCardProps) {
 
   const featureList = bike.features ? bike.features.split(",").map((f) => f.trim()) : [];
 
+  if (variant === "spotlight") {
+    return (
+      <div className="group rounded-2xl bg-white border border-sand-200 hover:border-sand-300 transition-all duration-300 overflow-hidden shadow-warm-md flex flex-col lg:grid lg:grid-cols-12">
+        {/* Large Bleed / DoF Photo Container */}
+        <div className="relative lg:col-span-7 aspect-[16/10] lg:aspect-auto w-full overflow-hidden bg-sand-100">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={bike.image_url}
+            alt={bike.name}
+            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-700"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-ink/30 via-transparent to-transparent opacity-60" />
+
+          {/* Availability Status */}
+          {!isAvailable ? (
+            <div className="absolute inset-0 bg-ink/75 backdrop-blur-sm flex items-center justify-center p-4">
+              <span className="px-4 py-1.5 rounded-full text-xs font-medium bg-sand-100 text-ink border border-sand-200">
+                {bike.status === "rented" ? "Unit Sedang Disewa" : "Dalam Jadwal Servis"}
+              </span>
+            </div>
+          ) : (
+            <div className="absolute top-4 left-4">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-moss text-white shadow-warm-sm">
+                Unit Rekomendasi Garasi
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Content Column */}
+        <div className="lg:col-span-5 p-6 sm:p-8 flex flex-col justify-between space-y-6">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-sand-100 text-ink-muted border border-sand-200">
+                {bike.brand}
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-rust/10 text-rust border border-rust/20">
+                {bike.category}
+              </span>
+            </div>
+
+            <h3 className="font-serif text-2xl sm:text-3xl text-ink font-bold group-hover:text-rust transition-colors leading-snug">
+              {bike.name}
+            </h3>
+
+            {/* Natural Sentence Meta */}
+            <p className="text-xs sm:text-sm text-moss font-medium">
+              Mesin {bike.engine_cc}cc transmisi {bike.transmission.toLowerCase()} lansiran {bike.year}
+            </p>
+
+            <p className="text-xs sm:text-sm text-ink-muted leading-relaxed">
+              {bike.description}
+            </p>
+
+            {/* Features in pills */}
+            {featureList.length > 0 && (
+              <div className="pt-2 flex flex-wrap gap-1.5">
+                {featureList.map((feat, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2.5 py-1 rounded-md text-[11px] font-medium bg-sand-50 text-ink-light border border-sand-200"
+                  >
+                    {feat}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Pricing & CTA */}
+          <div className="pt-5 border-t border-sand-200 flex items-center justify-between gap-4">
+            <div>
+              <span className="block text-[11px] text-ink-muted font-medium">Tarif Sewa Harian</span>
+              <div className="flex items-baseline space-x-1.5">
+                <span className="font-serif text-2xl sm:text-3xl font-bold text-rust">
+                  {formatRupiah(bike.price_per_day)}
+                </span>
+                <span className="text-xs text-ink-muted font-normal">/ 24 jam</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => onSelect(bike)}
+              disabled={!isAvailable}
+              className={`px-5 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all shadow-warm-sm ${
+                isAvailable
+                  ? "bg-rust hover:bg-rust-hover text-white active:scale-95"
+                  : "bg-sand-200 text-ink-faint cursor-not-allowed"
+              }`}
+            >
+              {isAvailable ? "Pesan Unit Ini" : "Tidak Tersedia"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Standard Card Variant
   return (
-    <div className="group rounded-2xl bg-slate-900/90 border border-slate-800 hover:border-brand-500/50 hover:shadow-2xl hover:shadow-brand-500/10 transition-all duration-300 flex flex-col overflow-hidden">
+    <div className="group rounded-xl bg-white border border-sand-200 hover:border-sand-300 transition-all duration-300 flex flex-col overflow-hidden shadow-warm-sm hover:shadow-warm-md">
       {/* Gambar Motor */}
-      <div className="relative h-56 w-full overflow-hidden bg-slate-950">
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-sand-100">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={bike.image_url}
           alt={bike.name}
           className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
 
-        {/* Status Badge */}
-        <div className="absolute top-3 left-3">
-          <span
-            className={`px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-md shadow-md flex items-center space-x-1 ${
-              isAvailable
-                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                : bike.status === "rented"
-                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
-            }`}
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                isAvailable ? "bg-emerald-400 animate-pulse" : bike.status === "rented" ? "bg-amber-400" : "bg-rose-400"
-              }`}
-            />
-            <span>
-              {isAvailable ? "Unit Siap Pakai" : bike.status === "rented" ? "Sedang Disewa" : "Maintenance"}
+        {!isAvailable && (
+          <div className="absolute inset-0 bg-ink/75 backdrop-blur-sm flex items-center justify-center p-3">
+            <span className="px-3 py-1 rounded-full text-[11px] font-medium bg-sand-100 text-ink border border-sand-200">
+              {bike.status === "rented" ? "Sedang Disewa" : "Jadwal Servis"}
             </span>
-          </span>
-        </div>
-
-        {/* Brand & Category Pill */}
-        <div className="absolute top-3 right-3 flex items-center space-x-1.5">
-          <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-slate-900/80 backdrop-blur-md text-slate-300 border border-slate-700">
-            {bike.brand}
-          </span>
-        </div>
-
-        {/* Bottom Info Specs */}
-        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs text-slate-300 font-medium">
-          <div className="flex items-center space-x-1 bg-slate-950/70 backdrop-blur-sm px-2.5 py-1 rounded-md border border-slate-800">
-            <Gauge className="w-3.5 h-3.5 text-brand-400" />
-            <span>{bike.engine_cc} cc</span>
           </div>
-          <div className="flex items-center space-x-1 bg-slate-950/70 backdrop-blur-sm px-2.5 py-1 rounded-md border border-slate-800">
-            <Zap className="w-3.5 h-3.5 text-amber-400" />
-            <span>{bike.transmission}</span>
-          </div>
-          <div className="bg-slate-950/70 backdrop-blur-sm px-2.5 py-1 rounded-md border border-slate-800 text-slate-400">
-            Tahun {bike.year}
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Content */}
       <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
         <div>
-          <div className="flex items-start justify-between">
-            <h3 className="text-lg font-bold text-white group-hover:text-brand-400 transition-colors">
-              {bike.name}
-            </h3>
+          <div className="flex items-center space-x-2">
+            <span className="text-[11px] font-medium text-ink-muted">
+              {bike.brand}
+            </span>
+            <span className="inline-block w-1 h-1 rounded-full bg-sand-300" />
+            <span className="text-[11px] font-medium text-rust">
+              {bike.category}
+            </span>
           </div>
-          <p className="text-xs text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+
+          <h3 className="font-serif text-lg font-bold text-ink mt-1 group-hover:text-rust transition-colors leading-snug">
+            {bike.name}
+          </h3>
+
+          {/* Natural Sentence Meta */}
+          <p className="text-xs text-moss font-medium mt-1">
+            {bike.engine_cc}cc {bike.transmission.toLowerCase()} lansiran {bike.year}
+          </p>
+
+          <p className="text-xs text-ink-muted mt-2 line-clamp-2 leading-relaxed">
             {bike.description}
           </p>
 
-          {/* Fitur & Fasilitas */}
-          <div className="mt-4 flex flex-wrap gap-1.5">
-            {featureList.slice(0, 3).map((feat, idx) => (
-              <span
-                key={idx}
-                className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] bg-slate-800/80 text-slate-300 border border-slate-700/60"
-              >
-                <CheckCircle2 className="w-3 h-3 text-brand-400" />
-                <span>{feat}</span>
-              </span>
-            ))}
-          </div>
+          {/* Fitur Pills */}
+          {featureList.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-sand-200/80 flex flex-wrap gap-1">
+              {featureList.slice(0, 3).map((feat, idx) => (
+                <span
+                  key={idx}
+                  className="px-2 py-0.5 rounded text-[10px] font-medium bg-sand-50 text-ink-light border border-sand-200"
+                >
+                  {feat}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Pricing & CTA */}
-        <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+        <div className="pt-3 border-t border-sand-200 flex items-center justify-between">
           <div>
-            <span className="text-[11px] uppercase tracking-wider text-slate-400 font-semibold block">Harga Sewa</span>
             <div className="flex items-baseline space-x-1">
-              <span className="text-xl font-extrabold text-brand-400">{formatRupiah(bike.price_per_day)}</span>
-              <span className="text-xs text-slate-400">/ hari</span>
+              <span className="font-serif text-xl font-bold text-rust">{formatRupiah(bike.price_per_day)}</span>
+              <span className="text-[11px] text-ink-muted font-normal">/ hari</span>
             </div>
           </div>
 
           <button
             onClick={() => onSelect(bike)}
             disabled={!isAvailable}
-            className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg ${
+            className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${
               isAvailable
-                ? "bg-gradient-to-r from-brand-500 to-amber-500 hover:from-brand-600 hover:to-amber-600 text-white shadow-brand-500/20 active:scale-95"
-                : "bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700/50"
+                ? "bg-ink hover:bg-rust text-white shadow-warm-sm active:scale-95"
+                : "bg-sand-200 text-ink-faint cursor-not-allowed"
             }`}
           >
-            {isAvailable ? "Sewa Unit Ini" : "Tidak Tersedia"}
+            {isAvailable ? "Pesan Unit" : "Penuh"}
           </button>
         </div>
       </div>
