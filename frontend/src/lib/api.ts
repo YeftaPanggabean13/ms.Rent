@@ -1,4 +1,4 @@
-import { Bike, Booking, DashboardStats, AuthResponse, User, CalendarData } from "@/types";
+import { Bike, Booking, DashboardStats, AuthResponse, User, CalendarData, ServiceCenter } from "@/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api";
 
@@ -396,5 +396,30 @@ export async function adminDeleteBike(id: number): Promise<boolean> {
     return res.ok;
   } catch {
     return false;
+  }
+}
+
+// ====================== SERVICE CENTER API ======================
+
+export async function getServiceCenters(params?: {
+  brand?: string;
+  search?: string;
+  lat?: number;
+  lng?: number;
+}): Promise<ServiceCenter[]> {
+  try {
+    const url = new URL(`${API_BASE_URL}/service-centers`);
+    if (params?.brand && params.brand !== "Semua") url.searchParams.append("brand", params.brand);
+    if (params?.search) url.searchParams.append("search", params.search);
+    if (typeof params?.lat === "number") url.searchParams.append("lat", String(params.lat));
+    if (typeof params?.lng === "number") url.searchParams.append("lng", String(params.lng));
+
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    if (!res.ok) throw new Error("Gagal mengambil data service center");
+    const json = await res.json();
+    return json.data || [];
+  } catch {
+    // Fallback jika API backend belum aktif
+    return [];
   }
 }

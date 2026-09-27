@@ -22,6 +22,23 @@ type Bike struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+// ServiceCenter adalah titik bengkel/dealer resmi untuk peta layanan
+type ServiceCenter struct {
+	ID         uint      `gorm:"primaryKey" json:"id"`
+	Name       string    `gorm:"size:120;not null" json:"name"`
+	Brand      string    `gorm:"size:50;not null;index" json:"brand"` // Honda, Yamaha, Vespa, Kawasaki
+	Type       string    `gorm:"size:80" json:"type"`
+	Address    string    `gorm:"size:255;not null" json:"address"`
+	City       string    `gorm:"size:80;not null;index" json:"city"`
+	Province   string    `gorm:"size:80" json:"province"`
+	Phone      string    `gorm:"size:40" json:"phone"`
+	Hours      string    `gorm:"size:120" json:"hours"`
+	Latitude   float64   `gorm:"not null" json:"latitude"`
+	Longitude  float64   `gorm:"not null" json:"longitude"`
+	IsOfficial bool      `gorm:"default:true" json:"is_official"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
 type Booking struct {
 	ID              uint      `gorm:"primaryKey" json:"id"`
 	BookingCode     string    `gorm:"size:50;uniqueIndex;not null" json:"booking_code"`

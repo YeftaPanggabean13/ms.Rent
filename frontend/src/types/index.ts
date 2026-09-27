@@ -76,3 +76,19 @@ export interface CalendarData {
   month: string;
   booked_dates: Record<string, string>; // date -> booking status
 }
+
+export interface ServiceCenter {
+  id: number;
+  name: string;
+  brand: string;
+  type: string;
+  address: string;
+  city: string;
+  province: string;
+  phone: string;
+  hours: string;
+  latitude: number;
+  longitude: number;
+  is_official: boolean;
+  distance_km?: number;
+}

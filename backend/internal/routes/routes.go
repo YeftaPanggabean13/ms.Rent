@@ -34,6 +34,7 @@ func SetupRouter() *gin.Engine {
 	bikeHandler := handlers.NewBikeHandler()
 	bookingHandler := handlers.NewBookingHandler()
 	dashboardHandler := handlers.NewDashboardHandler()
+	serviceCenterHandler := handlers.NewServiceCenterHandler()
 
 	// API Group
 	api := r.Group("/api")
@@ -64,6 +65,13 @@ func SetupRouter() *gin.Engine {
 			bikes.GET("/:id", bikeHandler.GetBikeByID)
 			bikes.GET("/:id/availability", bookingHandler.CheckAvailability)
 			bikes.GET("/:id/calendar", bookingHandler.GetCalendar)
+		}
+
+		// ====== Service Center routes (public read) ======
+		serviceCenters := api.Group("/service-centers")
+		{
+			serviceCenters.GET("", serviceCenterHandler.GetServiceCenters)
+			serviceCenters.GET("/:id", serviceCenterHandler.GetServiceCenterByID)
 		}
 
 		// ====== Booking routes (public create & track, admin manage) ======
