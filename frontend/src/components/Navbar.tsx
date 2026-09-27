@@ -42,6 +42,9 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
           <Link href="#ketentuan" className="hover:text-ink transition-colors">
             Ketentuan & Tarif
           </Link>
+          <Link href="/service-center" className="hover:text-ink transition-colors">
+            Service Center
+          </Link>
         </nav>
 
         {/* Actions */}
@@ -110,6 +113,13 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
               className="py-1 hover:text-rust"
             >
               Ketentuan & Tarif
+            </Link>
+            <Link
+              href="/service-center"
+              onClick={() => setMobileMenuOpen(false)}
+              className="py-1 hover:text-rust"
+            >
+              Service Center
             </Link>
             <Link
               href={user?.role === "admin" ? "/admin" : "/login"}
