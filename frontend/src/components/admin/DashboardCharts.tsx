@@ -53,7 +53,7 @@ function ChartCard({
     >
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
-          <h3 className="font-serif font-bold text-ink text-sm sm:text-[16px]">{title}</h3>
+          <h3 className="font-bold text-ink text-sm sm:text-[16px]">{title}</h3>
           <p className="text-[11px] text-ink-muted mt-0.5">{subtitle}</p>
         </div>
       </div>
@@ -211,7 +211,7 @@ export function StatusDonut({ bookings }: { bookings: Booking[] }) {
             })}
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="text-2xl font-serif font-bold text-ink leading-none">
+            <span className="text-2xl font-bold text-ink leading-none">
               {hover !== null ? segments.find((s) => s.key === hover)?.value ?? total : total}
             </span>
             <span className="text-[10px] text-ink-muted mt-1">
@@ -337,7 +337,7 @@ export function FleetUtilization({ stats }: { stats: DashboardStats | null }) {
           style={{ background: `conic-gradient(${PALETTE.rust} ${activePct * 3.6}deg, #F5F0EA 0deg)` }}
         >
           <div className="w-[72px] h-[72px] rounded-full bg-white flex flex-col items-center justify-center">
-            <span className="text-xl font-serif font-bold text-rust leading-none">{activePct}%</span>
+            <span className="text-xl font-bold text-rust leading-none">{activePct}%</span>
             <span className="text-[9px] text-ink-muted mt-0.5">terpakai</span>
           </div>
         </div>

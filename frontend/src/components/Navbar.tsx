@@ -20,26 +20,21 @@ import {
 import Logo from "@/components/Logo";
 
 interface NavbarProps {
-  onOpenCheckBooking: () => void;
+  onOpenCheckBooking?: () => void;
 }
 
 type NavItem = { hash?: string; href?: string; label: string };
 
 const NAV_ITEMS: NavItem[] = [
   { hash: "armada", label: "Katalog Armada" },
-  { hash: "standar-garasi", label: "Standar Perawatan" },
   { hash: "ketentuan", label: "Ketentuan" },
   { href: "/service-center", label: "Service Center" },
 ];
 
-const SECTION_IDS = ["armada", "standar-garasi", "ketentuan"];
+const SECTION_IDS = ["armada", "ketentuan"];
 
 const WHATSAPP_URL =
   "https://wa.me/6282151728477?text=Halo%20ms.Rent,%20saya%20ingin%20tanya%20sewa%20motor";
-
-const EXPANDED_SHADOW =
-  "shadow-[0_1px_0_rgba(255,255,255,0.6)_inset,0_10px_24px_-16px_rgba(27,36,48,0.45)]";
-const RESTING_SHADOW = "shadow-[0_1px_0_rgba(255,255,255,0.6)_inset]";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -230,7 +225,6 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
       0,
       el.getBoundingClientRect().top + window.scrollY - offset
     );
-    // Ditunggu satu frame agar kunci scroll body sudah dilepas lebih dulu
     requestAnimationFrame(() => window.scrollTo({ top, behavior: "smooth" }));
   };
 
@@ -248,18 +242,18 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
 
   const desktopLinkClass = (active: boolean) =>
     [
-      "relative py-1 transition-colors after:absolute after:inset-x-0 after:-bottom-0.5 after:h-[1.5px] after:bg-rust after:origin-left after:duration-300 after:transition-transform motion-reduce:after:transition-none",
+      "relative py-1 transition-colors after:absolute after:inset-x-0 after:-bottom-0.5 after:h-[2px] after:bg-accent after:origin-left after:duration-300 after:transition-transform motion-reduce:after:transition-none",
       active
-        ? "text-ink font-semibold after:scale-x-100"
+        ? "text-ink font-bold after:scale-x-100"
         : "text-ink-muted hover:text-ink after:scale-x-0 hover:after:scale-x-100",
     ].join(" ");
 
   const mobileItemClass = (active: boolean) =>
     [
-      "text-left py-2.5 px-3 -mx-3 rounded-lg transition-colors bg-transparent border-0 cursor-pointer animate-fade-up motion-reduce:animate-none",
+      "text-left py-2.5 px-3 -mx-3 rounded transition-colors bg-transparent border-0 cursor-pointer animate-fade-up motion-reduce:animate-none",
       active
-        ? "text-ink font-semibold bg-sand-100"
-        : "hover:text-ink hover:bg-sand-100",
+        ? "text-ink font-bold bg-line/40"
+        : "text-ink-muted hover:text-ink hover:bg-line/20",
     ].join(" ");
 
   const staggerDelay = (index: number) => ({
@@ -269,16 +263,14 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
   return (
     <header
       ref={headerRef}
-      className={`sticky top-0 z-40 w-full bg-base/85 backdrop-blur-xl border-b border-sand-200/70 transition-shadow duration-300 motion-reduce:transition-none ${
-        scrolled ? EXPANDED_SHADOW : RESTING_SHADOW
-      }`}
+      className="sticky top-0 z-40 w-full bg-surface border-b border-line text-ink transition-all duration-300 motion-reduce:transition-none"
     >
       {/* Backdrop mobile drawer */}
       {mobileOpen && (
         <div
           aria-hidden="true"
           onClick={() => setMobileOpen(false)}
-          className="md:hidden absolute inset-x-0 top-full h-screen bg-ink/45 backdrop-blur-[2px] animate-fade-in motion-reduce:animate-none"
+          className="md:hidden absolute inset-x-0 top-full h-screen bg-dark/40 backdrop-blur-[2px] animate-fade-in motion-reduce:animate-none"
         />
       )}
 
@@ -301,10 +293,10 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
               scrolled ? "scale-90" : "scale-100"
             }`}
           >
-            <Logo size={44} />
+            <Logo size={40} />
           </span>
           <span
-            className={`hidden sm:inline-block text-[11px] font-sans font-medium text-ink-muted/80 tracking-wide pl-3 border-l border-sand-300 transition-opacity duration-300 motion-reduce:transition-none ${
+            className={`hidden sm:inline-block text-[11px] font-sans font-medium text-ink-muted tracking-wide pl-3 border-l border-line transition-opacity duration-300 motion-reduce:transition-none ${
               scrolled ? "opacity-0 xl:opacity-100" : "opacity-100"
             }`}
           >
@@ -346,14 +338,6 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
 
         {/* Actions */}
         <div className="hidden md:flex items-center space-x-3">
-          <button
-            type="button"
-            onClick={onOpenCheckBooking}
-            className="text-xs font-medium text-ink px-4 py-2.5 rounded-lg border border-sand-300 bg-white/70 hover:bg-white hover:border-sand-400 hover:shadow-warm-sm transition-all"
-          >
-            Lacak Reservasi
-          </button>
-
           {user ? (
             <div className="relative" ref={dropdownRef}>
               <button
@@ -363,12 +347,12 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
                 aria-haspopup="menu"
                 aria-expanded={dropdownOpen}
                 aria-controls="account-menu"
-                className="flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-full border border-sand-300 bg-white/70 hover:bg-white hover:border-sand-400 transition-all"
+                className="flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-full border border-line bg-surface hover:bg-bg transition-colors text-ink"
               >
-                <span className="w-7 h-7 rounded-full bg-rust/10 text-rust grid place-items-center text-[11px] font-bold">
+                <span className="w-7 h-7 rounded-full bg-line text-ink grid place-items-center text-[11px] font-bold">
                   {getInitials(user.name)}
                 </span>
-                <span className="hidden lg:inline text-xs font-medium text-ink max-w-[8rem] truncate">
+                <span className="hidden lg:inline text-xs font-semibold text-ink max-w-[8rem] truncate">
                   {user.name}
                 </span>
                 <ChevronDown
@@ -384,10 +368,10 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
                   id="account-menu"
                   role="menu"
                   aria-label="Menu akun"
-                  className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-sand-200 bg-white/95 backdrop-blur-xl shadow-warm-lg overflow-hidden animate-scale-in origin-top-right motion-reduce:animate-none"
+                  className="absolute right-0 top-full mt-2 w-64 rounded-xl border border-line bg-surface shadow-lg overflow-hidden animate-scale-in origin-top-right motion-reduce:animate-none text-ink"
                 >
-                  <div className="px-4 py-3 bg-sand-50 border-b border-sand-200/80">
-                    <p className="text-[10px] uppercase tracking-[0.12em] text-ink-faint">
+                  <div className="px-4 py-3 bg-bg border-b border-line">
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-ink-muted">
                       Masuk sebagai
                     </p>
                     <p className="mt-0.5 text-sm font-semibold text-ink truncate">
@@ -396,7 +380,7 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
                     <p className="text-[11px] text-ink-muted truncate">
                       {user.email}
                     </p>
-                    <span className="inline-block mt-1.5 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-rust/10 text-rust">
+                    <span className="inline-block mt-1.5 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-line text-ink">
                       {user.role === "admin" ? "Administrator" : "Pelanggan"}
                     </span>
                   </div>
@@ -407,31 +391,33 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
                         href="/admin"
                         role="menuitem"
                         onClick={() => setDropdownOpen(false)}
-                        className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-xs font-medium text-ink hover:bg-sand-100 transition-colors"
+                        className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-xs font-medium text-ink hover:bg-bg transition-colors"
                       >
                         <LayoutDashboard className="w-4 h-4 text-ink-muted" />
                         Dashboard Admin
                       </Link>
                     ) : (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setDropdownOpen(false);
-                          onOpenCheckBooking();
-                        }}
-                        className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-xs font-medium text-ink hover:bg-sand-100 transition-colors"
-                      >
-                        <CalendarCheck2 className="w-4 h-4 text-ink-muted" />
-                        Lacak Reservasi
-                      </button>
+                      onOpenCheckBooking && (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setDropdownOpen(false);
+                            onOpenCheckBooking();
+                          }}
+                          className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-xs font-medium text-ink hover:bg-bg transition-colors"
+                        >
+                          <CalendarCheck2 className="w-4 h-4 text-ink-muted" />
+                          Lacak Reservasi
+                        </button>
+                      )
                     )}
 
                     <button
                       type="button"
                       role="menuitem"
                       onClick={handleLogout}
-                      className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-xs font-medium text-rust hover:bg-rust/10 transition-colors"
+                      className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-xs font-medium text-accent hover:bg-bg transition-colors"
                     >
                       <LogOut className="w-4 h-4" />
                       Keluar
@@ -453,21 +439,14 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
             href={WHATSAPP_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs font-medium px-4 py-2.5 rounded-lg bg-rust hover:bg-rust-hover text-white transition-all shadow-warm-sm hover:shadow-glow-rust hover:-translate-y-px"
+            className="text-xs font-semibold px-4 py-2.5 rounded-[4px] bg-accent text-accent-ink hover:opacity-90 transition-opacity"
           >
             Hubungi Garasi
           </a>
         </div>
 
-        {/* Mobile Bar */}
-        <div className="flex md:hidden items-center space-x-2">
-          <button
-            type="button"
-            onClick={onOpenCheckBooking}
-            className="text-xs font-medium text-ink px-3 py-1.5 rounded-lg border border-sand-300 bg-white/70"
-          >
-            Lacak
-          </button>
+        {/* Mobile Hamburger Toggle */}
+        <div className="flex md:hidden items-center">
           <button
             ref={menuButtonRef}
             type="button"
@@ -476,7 +455,7 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
             aria-expanded={mobileOpen}
             aria-controls="mobile-menu"
             aria-haspopup="true"
-            className="p-2 rounded-lg text-ink hover:bg-sand-100 transition-colors"
+            className="p-2 rounded text-ink hover:bg-bg transition-colors"
           >
             {mobileOpen ? (
               <X className="w-5 h-5" />
@@ -495,7 +474,7 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
           role="dialog"
           aria-modal="true"
           aria-label="Menu navigasi"
-          className="md:hidden relative z-10 border-b border-sand-200/70 bg-base/95 backdrop-blur-xl px-5 py-5 animate-slide-down motion-reduce:animate-none"
+          className="md:hidden relative z-10 border-b border-line bg-surface px-5 py-5 animate-slide-down motion-reduce:animate-none text-ink"
         >
           <nav
             aria-label="Navigasi seluler"
@@ -533,13 +512,13 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
 
           {/* Akun di mobile */}
           <div
-            className="mt-4 pt-4 border-t border-sand-200 animate-fade-up motion-reduce:animate-none"
+            className="mt-4 pt-4 border-t border-line animate-fade-up motion-reduce:animate-none"
             style={staggerDelay(NAV_ITEMS.length)}
           >
             {user ? (
               <div className="space-y-2">
                 <div className="flex items-center gap-3 px-1">
-                  <span className="w-9 h-9 shrink-0 rounded-full bg-rust/10 text-rust grid place-items-center text-xs font-bold">
+                  <span className="w-9 h-9 shrink-0 rounded-full bg-line text-ink grid place-items-center text-xs font-bold">
                     {getInitials(user.name)}
                   </span>
                   <div className="min-w-0">
@@ -556,9 +535,9 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
                   <Link
                     href="/admin"
                     onClick={() => setMobileOpen(false)}
-                    className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-xs font-medium text-ink bg-sand-100 hover:bg-sand-200 transition-colors"
+                    className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-xs font-medium text-ink bg-bg hover:bg-line/40 transition-colors"
                   >
-                    <LayoutDashboard className="w-4 h-4" />
+                    <LayoutDashboard className="w-4 h-4 text-ink-muted" />
                     Dashboard Admin
                   </Link>
                 )}
@@ -566,7 +545,7 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-xs font-medium text-rust hover:bg-rust/10 transition-colors"
+                  className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-xs font-medium text-accent hover:bg-bg transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
                   Keluar
@@ -576,33 +555,23 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
               <Link
                 href="/login"
                 onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-xs font-medium text-ink bg-sand-100 hover:bg-sand-200 transition-colors"
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-lg text-xs font-medium text-ink bg-bg hover:bg-line/40 transition-colors"
               >
                 Login Admin
               </Link>
             )}
           </div>
 
-          {/* Aksi cepat */}
+          {/* Aksi WhatsApp */}
           <div
-            className="mt-4 pt-4 border-t border-sand-200 flex flex-col gap-2 animate-fade-up motion-reduce:animate-none"
+            className="mt-4 pt-4 border-t border-line flex flex-col gap-2 animate-fade-up motion-reduce:animate-none"
             style={staggerDelay(NAV_ITEMS.length + 1)}
           >
-            <button
-              type="button"
-              onClick={() => {
-                setMobileOpen(false);
-                onOpenCheckBooking();
-              }}
-              className="w-full text-center text-xs font-semibold py-3 rounded-lg border border-sand-300 bg-white text-ink hover:border-sand-400 hover:bg-sand-50 transition-colors"
-            >
-              Lacak Reservasi
-            </button>
             <a
               href={WHATSAPP_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full text-center text-xs font-semibold py-3 rounded-lg bg-rust hover:bg-rust-hover text-white transition-colors shadow-warm-sm"
+              className="w-full text-center text-xs font-semibold py-3 rounded-[4px] bg-accent text-accent-ink hover:opacity-90 transition-opacity"
             >
               WhatsApp Garasi (0821-5172-8477)
             </a>
@@ -610,12 +579,13 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
         </div>
       )}
 
-      {/* Scroll progress bar */}
+      {/* Scroll progress bar - solid token accent */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] origin-left bg-gradient-to-r from-rust to-[#E9974F]"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] origin-left bg-accent"
         style={{ transform: `scaleX(${progress})` }}
       />
     </header>
   );
 }
+

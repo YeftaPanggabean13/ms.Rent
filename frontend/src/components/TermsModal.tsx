@@ -17,7 +17,7 @@ export default function TermsModal({ isOpen, onClose }: TermsModalProps) {
         <div className="flex items-center justify-between p-6 border-b border-sand-200 bg-sand-50/50 shrink-0">
           <div>
             <span className="text-xs font-semibold text-rust tracking-wide">ms.Rent</span>
-            <h2 className="font-serif text-xl font-bold text-ink mt-0.5">Ketentuan &amp; Syarat Rental</h2>
+            <h2 className="text-xl font-bold text-ink mt-0.5">Ketentuan &amp; Syarat Rental</h2>
           </div>
           <button
             onClick={onClose}

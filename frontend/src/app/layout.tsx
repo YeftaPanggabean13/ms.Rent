@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ms.Rent — Rental Motor Urban & Terawat di Jabodetabek",
-  description: "Layanan sewa motor harian dan mingguan berkelas untuk komuter urban dan penikmat roda dua di Jabodetabek (NMAX, PCX, Vario, Scoopy, Vespa, XMAX). Lengkap dengan 2 helm SNI, jas hujan higienis, dan antar-jemput stasiun/hotel.",
+  title: "ms.Rent — Rental Motor Urban & Terawat di Bandung",
+  description: "Layanan sewa motor harian dan mingguan berkelas untuk komuter urban dan penikmat roda dua di Bandung (Beat, Scoopy, Aerox). Lengkap dengan 2 helm SNI, jas hujan higienis, dan antar-jemput Lokasi Mu!.",
 };
 
 export default function RootLayout({

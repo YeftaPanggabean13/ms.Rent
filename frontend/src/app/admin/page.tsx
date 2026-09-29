@@ -483,7 +483,7 @@ export default function AdminPage() {
             <span className="eyebrow-line text-xs font-semibold text-rust tracking-[0.14em] uppercase">
               Dashboard Garasi
             </span>
-            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-ink mt-1.5">
+            <h1 className="text-2xl sm:text-3xl font-bold text-ink mt-1.5">
               Halo, {user?.name || "Admin"}
             </h1>
             <p className="text-xs text-ink-muted mt-1">
@@ -557,7 +557,7 @@ export default function AdminPage() {
                     <Icon className="w-4 h-4" strokeWidth={1.75} />
                   </span>
                 </div>
-                <div className="text-2xl font-serif font-bold text-ink mt-1.5">{k.value}</div>
+                <div className="text-2xl font-bold text-ink mt-1.5">{k.value}</div>
                 <span className={`text-xs mt-1 block font-medium ${k.subClass}`}>{k.sub}</span>
                 <span className="text-[10px] text-ink-faint mt-2 block opacity-0 group-hover:opacity-100 transition">
                   Klik untuk lihat detail →
@@ -717,7 +717,7 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td className="p-4">
-                          <div className="font-serif font-bold text-rust">{formatRupiah(b.total_price)}</div>
+                          <div className="font-bold text-rust">{formatRupiah(b.total_price)}</div>
                           <span
                             className={`inline-block whitespace-nowrap px-2 py-0.5 rounded text-[10px] uppercase font-semibold mt-1 ${
                               b.payment_status === "paid"
@@ -872,8 +872,8 @@ export default function AdminPage() {
                       className="w-20 h-20 rounded-lg object-cover bg-sand-100 shrink-0"
                     />
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-serif font-bold text-ink text-sm leading-snug">{bike.name}</h4>
-                      <p className="font-serif text-sm text-rust font-bold mt-0.5">{formatRupiah(bike.price_per_day)} <span className="font-sans text-xs text-ink-muted font-normal">/ hari</span></p>
+                      <h4 className="font-bold text-ink text-sm leading-snug">{bike.name}</h4>
+                      <p className="text-sm text-rust font-bold mt-0.5">{formatRupiah(bike.price_per_day)} <span className="font-sans text-xs text-ink-muted font-normal">/ hari</span></p>
                       <p className="text-[11px] text-ink-muted mt-0.5">
                         {formatRupiah(bike.price_per_hour ?? 0)} <span className="font-normal">/ jam</span>
                       </p>
@@ -1051,7 +1051,7 @@ export default function AdminPage() {
         <div className="fixed inset-0 z-50 flex p-4 bg-ink/40 backdrop-blur-sm overflow-y-auto">
           <div className="relative w-full max-w-lg m-auto flex flex-col max-h-[calc(100vh-2rem)] bg-white border border-sand-200 rounded-2xl shadow-warm-lg overflow-hidden">
             <div className="flex items-center justify-between p-5 border-b border-sand-200 bg-sand-50/50 shrink-0">
-              <h2 className="font-serif text-xl font-bold text-ink">
+              <h2 className="text-xl font-bold text-ink">
                 {editingBike ? "Edit Unit Motor" : "Tambah Motor Baru"}
               </h2>
               <button onClick={() => setShowBikeForm(false)} className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-sand-200 transition">
@@ -1149,7 +1149,7 @@ export default function AdminPage() {
             <div className="flex items-center justify-between p-5 border-b border-sand-200 bg-sand-50/50 shrink-0">
               <div>
                 <span className="text-xs font-semibold text-rust tracking-wide">Perpanjaman Sewa</span>
-                <h2 className="font-serif text-xl font-bold text-ink">{extendTarget.booking_code}</h2>
+                <h2 className="text-xl font-bold text-ink">{extendTarget.booking_code}</h2>
               </div>
               <button onClick={() => setExtendTarget(null)} className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-sand-200 transition">
                 <X className="w-5 h-5" />

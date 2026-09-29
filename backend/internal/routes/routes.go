@@ -75,12 +75,6 @@ func SetupRouter() *gin.Engine {
 			serviceCenters.GET("/:id", serviceCenterHandler.GetServiceCenterByID)
 		}
 
-		// ====== Service Center routes (public read) ======
-		serviceCenters := api.Group("/service-centers")
-		{
-			serviceCenters.GET("", serviceCenterHandler.GetServiceCenters)
-			serviceCenters.GET("/:id", serviceCenterHandler.GetServiceCenterByID)
-		}
 
 		// ====== Booking routes (public create & track, admin manage) ======
 		bookings := api.Group("/bookings")

@@ -64,7 +64,7 @@ export default function LoginPage() {
               <Link href="/" className="inline-block bg-white rounded-2xl p-3 shadow-warm-md">
                 <Logo size={72} />
               </Link>
-              <p className="mt-6 font-serif text-2xl leading-snug text-white">
+              <p className="mt-6 text-2xl leading-snug text-white">
                 Kelola armada & reservasi dalam satu panel.
               </p>
               <p className="mt-3 text-xs text-sand-300 leading-relaxed">
@@ -90,7 +90,7 @@ export default function LoginPage() {
               <span className="eyebrow-line text-[11px] font-semibold text-rust uppercase tracking-[0.14em]">
                 Akses Terbatas
               </span>
-              <h1 className="font-serif text-2xl text-ink">Masuk ke Panel Manajemen Garasi</h1>
+              <h1 className="text-2xl text-ink">Masuk ke Panel Manajemen Garasi</h1>
               <p className="text-xs text-ink-muted">
                 Gunakan akun admin yang terdaftar untuk melanjutkan.
               </p>
@@ -149,7 +149,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 rounded-xl bg-rust hover:bg-rust-hover text-white font-medium text-sm transition shadow-warm-sm hover:shadow-glow-rust disabled:opacity-50"
+                className="w-full py-3 rounded-lg bg-rust hover:bg-rust-hover text-white font-medium text-sm transition shadow-warm-sm disabled:opacity-50"
               >
                 {loading ? "Memproses..." : "Masuk ke Dashboard"}
               </button>

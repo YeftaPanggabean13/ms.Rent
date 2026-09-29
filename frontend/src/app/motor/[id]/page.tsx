@@ -258,29 +258,29 @@ export default function BikeDetailPage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="p-4 rounded-xl bg-white border border-sand-200 shadow-warm-sm text-center">
                 <Gauge className="w-5 h-5 mx-auto text-rust mb-1.5" />
-                <span className="block text-lg font-serif font-bold text-ink">{bike.engine_cc}cc</span>
+                <span className="block text-lg font-bold text-ink">{bike.engine_cc}cc</span>
                 <span className="text-[10px] text-ink-muted">Kapasitas Mesin</span>
               </div>
               <div className="p-4 rounded-xl bg-white border border-sand-200 shadow-warm-sm text-center">
                 <Settings2 className="w-5 h-5 mx-auto text-rust mb-1.5" />
-                <span className="block text-lg font-serif font-bold text-ink">{bike.transmission}</span>
+                <span className="block text-lg font-bold text-ink">{bike.transmission}</span>
                 <span className="text-[10px] text-ink-muted">Transmisi</span>
               </div>
               <div className="p-4 rounded-xl bg-white border border-sand-200 shadow-warm-sm text-center">
                 <Calendar className="w-5 h-5 mx-auto text-rust mb-1.5" />
-                <span className="block text-lg font-serif font-bold text-ink">{bike.year}</span>
+                <span className="block text-lg font-bold text-ink">{bike.year}</span>
                 <span className="text-[10px] text-ink-muted">Tahun Produksi</span>
               </div>
               <div className="p-4 rounded-xl bg-white border border-sand-200 shadow-warm-sm text-center">
                 <Fuel className="w-5 h-5 mx-auto text-rust mb-1.5" />
-                <span className="block text-lg font-serif font-bold text-ink">{bike.brand}</span>
+                <span className="block text-lg font-bold text-ink">{bike.brand}</span>
                 <span className="text-[10px] text-ink-muted">Brand</span>
               </div>
             </div>
 
             {/* Description */}
             <div className="p-6 rounded-2xl bg-white border border-sand-200 shadow-warm-sm space-y-4">
-              <h3 className="font-serif text-lg font-bold text-ink">Tentang Unit Ini</h3>
+              <h3 className="text-lg font-bold text-ink">Tentang Unit Ini</h3>
               <p className="text-sm text-ink-muted leading-relaxed">{bike.description}</p>
 
               {/* Features */}
@@ -305,7 +305,7 @@ export default function BikeDetailPage() {
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-4 h-4 text-rust" />
-                  <h3 className="font-serif text-lg font-bold text-ink">Kalender Ketersediaan</h3>
+                  <h3 className="text-lg font-bold text-ink">Kalender Ketersediaan</h3>
                 </div>
                 <button
                   onClick={() => setHoursOpen(true)}
@@ -331,7 +331,7 @@ export default function BikeDetailPage() {
                     <span>·</span>
                     <span>{bike.category}</span>
                   </div>
-                  <h1 className="font-serif text-2xl sm:text-3xl font-bold text-ink leading-tight">
+                  <h1 className="text-2xl sm:text-3xl font-bold text-ink leading-tight">
                     {bike.name}
                   </h1>
                   <p className="text-xs text-ink-faint mt-1">Plat: {bike.plate_number}</p>
@@ -341,7 +341,7 @@ export default function BikeDetailPage() {
                 <div className="p-4 rounded-xl bg-sand-50 border border-sand-200">
                   <span className="text-xs text-ink-muted block mb-1">Tarif Sewa Harian</span>
                   <div className="flex items-baseline space-x-1">
-                    <span className="font-serif text-3xl font-bold text-rust">
+                    <span className="text-3xl font-bold text-rust">
                       {formatRupiah(bike.price_per_day)}
                     </span>
                     <span className="text-sm text-ink-muted">/ 24 jam</span>
@@ -382,7 +382,7 @@ export default function BikeDetailPage() {
                 <button
                   onClick={() => setBookingBike(bike)}
                   disabled={bike.status === "maintenance"}
-                  className="w-full py-3.5 rounded-full bg-rust hover:bg-rust-hover text-white font-semibold text-sm transition shadow-warm-sm hover:shadow-glow-rust active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
+                  className="w-full py-3.5 rounded-lg bg-rust hover:bg-rust-hover text-white font-semibold text-sm transition shadow-warm-sm active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                 >
                   {bike.status === "maintenance" ? "Unit Tidak Tersedia" : "Pesan Unit Ini Sekarang"}
                 </button>
@@ -435,7 +435,7 @@ export default function BikeDetailPage() {
               <span className="eyebrow-line text-xs font-semibold text-rust tracking-[0.14em] uppercase">
                 Motor Serupa
               </span>
-              <h2 className="font-serif text-2xl font-bold text-ink mt-2">
+              <h2 className="text-2xl font-bold text-ink mt-2">
                 Pilihan Lain di Kategori {bike.category}
               </h2>
             </div>
@@ -466,8 +466,8 @@ export default function BikeDetailPage() {
                     <span>·</span>
                     <span className="text-rust">{rb.category}</span>
                   </div>
-                  <h3 className="font-serif font-bold text-ink group-hover:text-rust transition">{rb.name}</h3>
-                  <p className="font-serif text-rust font-bold mt-1">
+                  <h3 className="font-bold text-ink group-hover:text-rust transition">{rb.name}</h3>
+                  <p className="text-rust font-bold mt-1">
                     {formatRupiah(rb.price_per_day)} <span className="text-xs text-ink-muted font-sans font-normal">/ hari</span>
                   </p>
                 </Link>
