@@ -26,11 +26,69 @@ export function getStoredUser(): User | null {
 export function storeAuth(token: string, user: User) {
   localStorage.setItem(AUTH_TOKEN_KEY, token);
   localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  notifyAuthChanged();
 }
 
 export function clearAuth() {
   localStorage.removeItem(AUTH_TOKEN_KEY);
   localStorage.removeItem(AUTH_USER_KEY);
+  notifyAuthChanged();
+}
+
+// ====================== AUTH STORE (for useSyncExternalStore) ======================
+
+const AUTH_EVENT = "ms-rent:auth";
+
+export interface AuthSnapshot {
+  token: string | null;
+  user: User | null;
+}
+
+const SERVER_AUTH_SNAPSHOT: AuthSnapshot = { token: null, user: null };
+
+let cachedAuthSnapshot: AuthSnapshot = SERVER_AUTH_SNAPSHOT;
+let cachedAuthKey = "";
+
+const authSnapshotKey = (token: string | null, user: User | null) =>
+  `${token ?? ""}|${user ? `${user.id}|${user.email}|${user.role}` : ""}`;
+
+export function subscribeAuth(onStoreChange: () => void): () => void {
+  const onStorage = (event: StorageEvent) => {
+    if (
+      event.key === null ||
+      event.key === AUTH_TOKEN_KEY ||
+      event.key === AUTH_USER_KEY
+    ) {
+      onStoreChange();
+    }
+  };
+  const onAuth = () => onStoreChange();
+
+  window.addEventListener("storage", onStorage);
+  window.addEventListener(AUTH_EVENT, onAuth);
+  return () => {
+    window.removeEventListener("storage", onStorage);
+    window.removeEventListener(AUTH_EVENT, onAuth);
+  };
+}
+
+export function getAuthSnapshot(): AuthSnapshot {
+  const token = getStoredToken();
+  const user = getStoredUser();
+  const key = authSnapshotKey(token, user);
+  if (key !== cachedAuthKey) {
+    cachedAuthKey = key;
+    cachedAuthSnapshot = { token, user };
+  }
+  return cachedAuthSnapshot;
+}
+
+export function getServerAuthSnapshot(): AuthSnapshot {
+  return SERVER_AUTH_SNAPSHOT;
+}
+
+function notifyAuthChanged() {
+  window.dispatchEvent(new Event(AUTH_EVENT));
 }
 
 function authHeaders(): Record<string, string> {
@@ -91,6 +149,7 @@ export const initialMockBikes: Bike[] = [
     year: 2024,
     transmission: "Automatic",
     price_per_day: 135000,
+  price_per_hour: 7000,
     plate_number: "B 4120 KZA",
     status: "available",
     image_url: "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&w=800&q=80",
@@ -106,6 +165,7 @@ export const initialMockBikes: Bike[] = [
     year: 2024,
     transmission: "Automatic",
     price_per_day: 140000,
+  price_per_hour: 7000,
     plate_number: "B 3899 SWR",
     status: "available",
     image_url: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=800&q=80",
@@ -121,6 +181,7 @@ export const initialMockBikes: Bike[] = [
     year: 2024,
     transmission: "Automatic",
     price_per_day: 110000,
+  price_per_hour: 6000,
     plate_number: "B 5521 TGB",
     status: "available",
     image_url: "https://images.unsplash.com/photo-1609630875171-b1321377ee65?auto=format&fit=crop&w=800&q=80",
@@ -136,6 +197,7 @@ export const initialMockBikes: Bike[] = [
     year: 2023,
     transmission: "Automatic",
     price_per_day: 220000,
+  price_per_hour: 11000,
     plate_number: "B 1968 VSP",
     status: "available",
     image_url: "https://images.unsplash.com/photo-1515777315835-281b94c9589f?auto=format&fit=crop&w=800&q=80",
@@ -151,6 +213,7 @@ export const initialMockBikes: Bike[] = [
     year: 2024,
     transmission: "Automatic",
     price_per_day: 125000,
+  price_per_hour: 6500,
     plate_number: "B 6023 ARX",
     status: "available",
     image_url: "https://images.unsplash.com/photo-1547549082-6bc09f2049ae?auto=format&fit=crop&w=800&q=80",
@@ -166,6 +229,7 @@ export const initialMockBikes: Bike[] = [
     year: 2024,
     transmission: "Automatic",
     price_per_day: 95000,
+  price_per_hour: 5500,
     plate_number: "B 4712 SCP",
     status: "available",
     image_url: "https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&w=800&q=80",
@@ -181,6 +245,7 @@ export const initialMockBikes: Bike[] = [
     year: 2024,
     transmission: "Automatic",
     price_per_day: 290000,
+  price_per_hour: 15000,
     plate_number: "B 2500 XMX",
     status: "available",
     image_url: "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&w=800&q=80",
@@ -196,6 +261,7 @@ export const initialMockBikes: Bike[] = [
     year: 2023,
     transmission: "Manual",
     price_per_day: 175000,
+  price_per_hour: 9500,
     plate_number: "B 6711 KLX",
     status: "available",
     image_url: "https://images.unsplash.com/photo-1511994298241-608e28f14fde?auto=format&fit=crop&w=800&q=80",
@@ -259,6 +325,30 @@ export async function getBikeCalendar(bikeId: number, month: string): Promise<Re
   }
 }
 
+export interface BikeHourInterval {
+  start: string;
+  end: string;
+  status: string;
+  status_label: string;
+}
+
+// Jam-jam terpakai 1 unit pada tanggal tertentu (untuk melihat jam yang kosong)
+export async function getBikeHours(
+  bikeId: number,
+  date: string
+): Promise<BikeHourInterval[] | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/bikes/${bikeId}/hours?date=${date}`, {
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return Array.isArray(json.intervals) ? json.intervals : [];
+  } catch {
+    return null;
+  }
+}
+
 // ====================== PUBLIC BOOKING API ======================
 
 export async function createBooking(data: Booking): Promise<{ success: boolean; data?: Booking; error?: string }> {
@@ -268,24 +358,30 @@ export async function createBooking(data: Booking): Promise<{ success: boolean; 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-    const json = await res.json();
-    if (!res.ok) throw new Error(json.error || "Gagal membuat pesanan");
+    let json: { error?: string; data?: Booking } | null = null;
+    try {
+      json = await res.json();
+    } catch {
+      json = null;
+    }
+    // Reservasi hanya dianggap berhasil bila server benar-benar merespons sukses.
+    // Jangan pernah memalsukan sukses: server adalah satu-satunya yang memvalidasi
+    // ketersediaan unit (bentrok jadwal), harga, dan jadwal lampau.
+    if (!res.ok) {
+      return {
+        success: false,
+        error: json?.error || `Server menolak reservasi (HTTP ${res.status}). Silakan coba lagi.`,
+      };
+    }
+    if (!json?.data) {
+      return { success: false, error: "Respons server tidak valid. Silakan coba lagi." };
+    }
     return { success: true, data: json.data };
-  } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : "Gagal terhubung ke server backend";
-    // Mock booking success if backend is offline
-    const mockCode = `MSR-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+  } catch {
     return {
-      success: true,
-      data: {
-        ...data,
-        id: Date.now(),
-        booking_code: mockCode,
-        payment_status: "unpaid",
-        booking_status: "pending",
-        created_at: new Date().toISOString(),
-      },
-      error: errorMessage,
+      success: false,
+      error:
+        "Tidak dapat terhubung ke server reservasi. Pastikan server backend berjalan, lalu coba lagi.",
     };
   }
 }
@@ -298,6 +394,32 @@ export async function getBookingByCode(code: string): Promise<Booking | null> {
     return json.data;
   } catch {
     return null;
+  }
+}
+
+export async function requestExtend(
+  bookingCode: string,
+  customerPhone: string,
+  hours: number
+): Promise<{ success: boolean; data?: Booking; message?: string; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/bookings/extend`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        booking_code: bookingCode,
+        customer_phone: customerPhone,
+        hours,
+      }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Gagal mengajukan perpanjaman");
+    return { success: true, data: json.data, message: json.message };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Gagal terhubung ke server backend",
+    };
   }
 }
 
@@ -330,6 +452,48 @@ export async function updateBookingStatus(
     return res.ok;
   } catch {
     return false;
+  }
+}
+
+export async function adminExtendBooking(
+  id: number,
+  hours: number
+): Promise<{ success: boolean; data?: Booking; message?: string; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/bookings/${id}/extend`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ hours }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Gagal memperpanjang reservasi");
+    return { success: true, data: json.data, message: json.message };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Gagal terhubung ke server backend",
+    };
+  }
+}
+
+export async function decideExtend(
+  id: number,
+  approve: boolean
+): Promise<{ success: boolean; data?: Booking; message?: string; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/bookings/${id}/extend/decision`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ approve }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Gagal memproses keputusan perpanjaman");
+    return { success: true, data: json.data, message: json.message };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Gagal terhubung ke server backend",
+    };
   }
 }
 

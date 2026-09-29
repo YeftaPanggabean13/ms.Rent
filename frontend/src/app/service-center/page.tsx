@@ -104,14 +104,14 @@ export default function ServiceCenterPage() {
       {/* Header */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-6">
         <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
-          <div className="max-w-2xl">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-rust">
-              <Wrench className="w-3.5 h-3.5" /> Layanan Purna Jual
+          <div className="max-w-2xl animate-fade-up">
+            <span className="eyebrow-line inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-rust">
+              <Wrench className="w-3.5 h-3.5" /> Layanan Service
             </span>
             <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl text-ink mt-3 leading-tight">
               Peta Service Center Resmi Indonesia
             </h1>
-            <p className="text-ink-muted mt-3 text-sm sm:text-base leading-relaxed">
+            <p className="text-ink-muted mt-3 text-sm sm:text-[16px] leading-relaxed">
               Temukan bengkel & dealer resmi <strong>Honda (AHASS)</strong>,{" "}
               <strong>Yamaha</strong>, <strong>Vespa</strong>, dan{" "}
               <strong>Kawasaki</strong> terdekat dari lokasi Anda — lengkap dengan alamat,
@@ -119,7 +119,7 @@ export default function ServiceCenterPage() {
             </p>
           </div>
 
-          <div className="flex flex-col items-start lg:items-end gap-2">
+          <div className="flex flex-col items-start lg:items-end gap-2 animate-fade-up [animation-delay:120ms]">
             <button
               onClick={requestLocation}
               disabled={geoStatus === "loading"}
@@ -278,7 +278,7 @@ export default function ServiceCenterPage() {
 
           {/* Map */}
           <div className="lg:col-span-7 order-1 lg:order-2">
-            <div className="h-[320px] sm:h-[420px] lg:h-[620px] rounded-xl overflow-hidden border border-sand-200 shadow-warm-md bg-sand-100">
+            <div className="relative z-0 h-[320px] sm:h-[420px] lg:h-[620px] rounded-xl overflow-hidden border border-sand-200 shadow-warm-md bg-sand-100">
               <ServiceCenterMap
                 centers={filtered}
                 userLocation={userLocation}
@@ -353,7 +353,11 @@ export default function ServiceCenterPage() {
         </p>
       </section>
 
-      <CheckBookingModal isOpen={checkBookingOpen} onClose={() => setCheckBookingOpen(false)} />
+      <CheckBookingModal
+        key={checkBookingOpen ? "track-open" : "closed"}
+        isOpen={checkBookingOpen}
+        onClose={() => setCheckBookingOpen(false)}
+      />
     </div>
   );
 }

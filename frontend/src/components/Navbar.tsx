@@ -1,146 +1,621 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
-import { Menu, X } from "lucide-react";
-import { getStoredUser } from "@/lib/api";
-import { User } from "@/types";
+import { useRouter, usePathname } from "next/navigation";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
+import {
+  Menu,
+  X,
+  ChevronDown,
+  LogOut,
+  LayoutDashboard,
+  CalendarCheck2,
+} from "lucide-react";
+import {
+  clearAuth,
+  subscribeAuth,
+  getAuthSnapshot,
+  getServerAuthSnapshot,
+} from "@/lib/api";
+import Logo from "@/components/Logo";
 
 interface NavbarProps {
   onOpenCheckBooking: () => void;
 }
 
-export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
+type NavItem = { hash?: string; href?: string; label: string };
 
+const NAV_ITEMS: NavItem[] = [
+  { hash: "armada", label: "Katalog Armada" },
+  { hash: "standar-garasi", label: "Standar Perawatan" },
+  { hash: "ketentuan", label: "Ketentuan" },
+  { href: "/service-center", label: "Service Center" },
+];
+
+const SECTION_IDS = ["armada", "standar-garasi", "ketentuan"];
+
+const WHATSAPP_URL =
+  "https://wa.me/6282151728477?text=Halo%20ms.Rent,%20saya%20ingin%20tanya%20sewa%20motor";
+
+const EXPANDED_SHADOW =
+  "shadow-[0_1px_0_rgba(255,255,255,0.6)_inset,0_10px_24px_-16px_rgba(27,36,48,0.45)]";
+const RESTING_SHADOW = "shadow-[0_1px_0_rgba(255,255,255,0.6)_inset]";
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  return parts
+    .slice(0, 2)
+    .map((part) => part.charAt(0))
+    .join("")
+    .toUpperCase();
+}
+
+export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
+  const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [prevPathname, setPrevPathname] = useState(pathname);
+
+  const { user } = useSyncExternalStore(
+    subscribeAuth,
+    getAuthSnapshot,
+    getServerAuthSnapshot
+  );
+
+  const router = useRouter();
+
+  const headerRef = useRef<HTMLElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  // Navigasi route baru selalu menutup menu yang terbuka & reset scrollspy
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
+    setMobileOpen(false);
+    setDropdownOpen(false);
+    setActiveSection(null);
+  }
+
+  // Compressed-on-scroll + progress bar (rAF-throttled)
   useEffect(() => {
-    setUser(getStoredUser());
+    let frame = 0;
+
+    const update = () => {
+      frame = 0;
+      const y = window.scrollY;
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      setScrolled(y > 8);
+      setProgress(max > 0 ? Math.min(1, Math.max(0, y / max)) : 0);
+      if (window.innerWidth >= 768) setMobileOpen(false);
+    };
+
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
   }, []);
 
+  // Scrollspy: tandai section yang sedang berada di viewport
+  useEffect(() => {
+    if (pathname !== "/") return;
+    if (typeof IntersectionObserver === "undefined") return;
+
+    const els = SECTION_IDS.map((id) => document.getElementById(id)).filter(
+      (el): el is HTMLElement => el !== null
+    );
+    if (!els.length) return;
+
+    const visible = new Set<string>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) visible.add(entry.target.id);
+          else visible.delete(entry.target.id);
+        });
+        setActiveSection(SECTION_IDS.find((id) => visible.has(id)) ?? null);
+      },
+      { rootMargin: "-120px 0px -55% 0px", threshold: 0 }
+    );
+
+    els.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [pathname]);
+
+  // Mobile drawer: kunci scroll body, Esc untuk tutup, focus trap
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+        menuButtonRef.current?.focus();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const panel = panelRef.current;
+      if (!panel) return;
+      const focusables = Array.from(
+        panel.querySelectorAll<HTMLElement>("a[href], button:not([disabled])")
+      );
+      if (!focusables.length) return;
+
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+
+      if (!panel.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    const frame = requestAnimationFrame(() => {
+      panelRef.current
+        ?.querySelector<HTMLElement>("a[href], button:not([disabled])")
+        ?.focus();
+    });
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+      cancelAnimationFrame(frame);
+    };
+  }, [mobileOpen]);
+
+  // Dropdown akun: tutup saat klik di luar / Esc
+  useEffect(() => {
+    if (!dropdownOpen) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setDropdownOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setDropdownOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [dropdownOpen]);
+
+  const navigateToSection = (hash: string) => {
+    setMobileOpen(false);
+    setDropdownOpen(false);
+
+    if (pathname !== "/") {
+      router.push(`/#${hash}`);
+      return;
+    }
+
+    const el = document.getElementById(hash);
+    if (!el) return;
+    const offset = (headerRef.current?.offsetHeight ?? 80) + 12;
+    const top = Math.max(
+      0,
+      el.getBoundingClientRect().top + window.scrollY - offset
+    );
+    // Ditunggu satu frame agar kunci scroll body sudah dilepas lebih dulu
+    requestAnimationFrame(() => window.scrollTo({ top, behavior: "smooth" }));
+  };
+
+  const handleLogout = () => {
+    clearAuth();
+    setDropdownOpen(false);
+    setMobileOpen(false);
+    if (pathname.startsWith("/admin")) router.push("/");
+  };
+
+  const isItemActive = (item: NavItem) =>
+    item.hash
+      ? pathname === "/" && activeSection === item.hash
+      : pathname === item.href;
+
+  const desktopLinkClass = (active: boolean) =>
+    [
+      "relative py-1 transition-colors after:absolute after:inset-x-0 after:-bottom-0.5 after:h-[1.5px] after:bg-rust after:origin-left after:duration-300 after:transition-transform motion-reduce:after:transition-none",
+      active
+        ? "text-ink font-semibold after:scale-x-100"
+        : "text-ink-muted hover:text-ink after:scale-x-0 hover:after:scale-x-100",
+    ].join(" ");
+
+  const mobileItemClass = (active: boolean) =>
+    [
+      "text-left py-2.5 px-3 -mx-3 rounded-lg transition-colors bg-transparent border-0 cursor-pointer animate-fade-up motion-reduce:animate-none",
+      active
+        ? "text-ink font-semibold bg-sand-100"
+        : "hover:text-ink hover:bg-sand-100",
+    ].join(" ");
+
+  const staggerDelay = (index: number) => ({
+    animationDelay: `${index * 45}ms`,
+  });
+
   return (
-    <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-base/90 border-b border-sand-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+    <header
+      ref={headerRef}
+      className={`sticky top-0 z-40 w-full bg-base/85 backdrop-blur-xl border-b border-sand-200/70 transition-shadow duration-300 motion-reduce:transition-none ${
+        scrolled ? EXPANDED_SHADOW : RESTING_SHADOW
+      }`}
+    >
+      {/* Backdrop mobile drawer */}
+      {mobileOpen && (
+        <div
+          aria-hidden="true"
+          onClick={() => setMobileOpen(false)}
+          className="md:hidden absolute inset-x-0 top-full h-screen bg-ink/45 backdrop-blur-[2px] animate-fade-in motion-reduce:animate-none"
+        />
+      )}
+
+      <div
+        className={`relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between transition-[height] duration-300 ease-out motion-reduce:transition-none ${
+          scrolled ? "h-14" : "h-20"
+        }`}
+      >
         {/* Brand Mark */}
-        <Link href="/" className="flex items-baseline space-x-2 group">
-          <span className="font-serif text-2xl sm:text-3xl text-ink tracking-tight">
-            ms<span className="text-rust">.</span>rent
+        <Link
+          href="/"
+          onClick={() => {
+            setMobileOpen(false);
+            setDropdownOpen(false);
+          }}
+          className="flex items-center gap-3 group shrink-0"
+        >
+          <span
+            className={`block transition-transform duration-300 ease-out motion-reduce:transition-none ${
+              scrolled ? "scale-90" : "scale-100"
+            }`}
+          >
+            <Logo size={44} />
           </span>
-          <span className="hidden sm:inline-block text-[11px] font-sans font-medium text-ink-muted/80 tracking-wide pl-2 border-l border-sand-200">
+          <span
+            className={`hidden sm:inline-block text-[11px] font-sans font-medium text-ink-muted/80 tracking-wide pl-3 border-l border-sand-300 transition-opacity duration-300 motion-reduce:transition-none ${
+              scrolled ? "opacity-0 xl:opacity-100" : "opacity-100"
+            }`}
+          >
             Garasi Motor Urban Jabodetabek
           </span>
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-8 text-sm font-medium text-ink-muted">
-          <Link href="#armada" className="hover:text-ink transition-colors">
-            Katalog Armada
-          </Link>
-          <Link href="#standar-garasi" className="hover:text-ink transition-colors">
-            Standar Perawatan
-          </Link>
-          <Link href="#ketentuan" className="hover:text-ink transition-colors">
-            Ketentuan & Tarif
-          </Link>
-          <Link href="/service-center" className="hover:text-ink transition-colors">
-            Service Center
-          </Link>
+        <nav
+          aria-label="Navigasi utama"
+          className="hidden md:flex items-center space-x-8 text-sm font-medium"
+        >
+          {NAV_ITEMS.map((item) => {
+            const active = isItemActive(item);
+            const className = desktopLinkClass(active);
+
+            return item.hash ? (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => navigateToSection(item.hash!)}
+                aria-current={active ? "location" : undefined}
+                className={`${className} bg-transparent border-0 cursor-pointer`}
+              >
+                {item.label}
+              </button>
+            ) : (
+              <Link
+                key={item.label}
+                href={item.href!}
+                aria-current={active ? "page" : undefined}
+                className={className}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         {/* Actions */}
         <div className="hidden md:flex items-center space-x-3">
           <button
+            type="button"
             onClick={onOpenCheckBooking}
-            className="text-xs font-medium text-ink px-4 py-2.5 rounded-lg border border-sand-200 bg-sand-50 hover:bg-sand-100 hover:border-sand-300 transition-all shadow-warm-sm"
+            className="text-xs font-medium text-ink px-4 py-2.5 rounded-lg border border-sand-300 bg-white/70 hover:bg-white hover:border-sand-400 hover:shadow-warm-sm transition-all"
           >
             Lacak Reservasi
           </button>
-          <Link
-            href={user?.role === "admin" ? "/admin" : "/login"}
-            className="text-xs font-medium text-ink-muted hover:text-ink px-2.5 py-2 transition-colors"
-          >
-            {user?.role === "admin" ? "Dashboard" : "Login"}
-          </Link>
+
+          {user ? (
+            <div className="relative" ref={dropdownRef}>
+              <button
+                ref={triggerRef}
+                type="button"
+                onClick={() => setDropdownOpen((open) => !open)}
+                aria-haspopup="menu"
+                aria-expanded={dropdownOpen}
+                aria-controls="account-menu"
+                className="flex items-center gap-2 pl-1.5 pr-2.5 py-1.5 rounded-full border border-sand-300 bg-white/70 hover:bg-white hover:border-sand-400 transition-all"
+              >
+                <span className="w-7 h-7 rounded-full bg-rust/10 text-rust grid place-items-center text-[11px] font-bold">
+                  {getInitials(user.name)}
+                </span>
+                <span className="hidden lg:inline text-xs font-medium text-ink max-w-[8rem] truncate">
+                  {user.name}
+                </span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className={`w-3.5 h-3.5 text-ink-muted transition-transform duration-200 motion-reduce:transition-none ${
+                    dropdownOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {dropdownOpen && (
+                <div
+                  id="account-menu"
+                  role="menu"
+                  aria-label="Menu akun"
+                  className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-sand-200 bg-white/95 backdrop-blur-xl shadow-warm-lg overflow-hidden animate-scale-in origin-top-right motion-reduce:animate-none"
+                >
+                  <div className="px-4 py-3 bg-sand-50 border-b border-sand-200/80">
+                    <p className="text-[10px] uppercase tracking-[0.12em] text-ink-faint">
+                      Masuk sebagai
+                    </p>
+                    <p className="mt-0.5 text-sm font-semibold text-ink truncate">
+                      {user.name}
+                    </p>
+                    <p className="text-[11px] text-ink-muted truncate">
+                      {user.email}
+                    </p>
+                    <span className="inline-block mt-1.5 text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-rust/10 text-rust">
+                      {user.role === "admin" ? "Administrator" : "Pelanggan"}
+                    </span>
+                  </div>
+
+                  <div className="p-1.5">
+                    {user.role === "admin" ? (
+                      <Link
+                        href="/admin"
+                        role="menuitem"
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-xs font-medium text-ink hover:bg-sand-100 transition-colors"
+                      >
+                        <LayoutDashboard className="w-4 h-4 text-ink-muted" />
+                        Dashboard Admin
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setDropdownOpen(false);
+                          onOpenCheckBooking();
+                        }}
+                        className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-xs font-medium text-ink hover:bg-sand-100 transition-colors"
+                      >
+                        <CalendarCheck2 className="w-4 h-4 text-ink-muted" />
+                        Lacak Reservasi
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={handleLogout}
+                      className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-xs font-medium text-rust hover:bg-rust/10 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Keluar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="text-xs font-medium text-ink-muted hover:text-ink px-2.5 py-2 transition-colors"
+            >
+              Login
+            </Link>
+          )}
+
           <a
-            href="https://wa.me/6281234567890?text=Halo%20ms.Rent,%20saya%20ingin%20tanya%20sewa%20motor"
+            href={WHATSAPP_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs font-medium px-4 py-2.5 rounded-lg bg-rust hover:bg-rust-hover text-white transition-all shadow-warm-sm"
+            className="text-xs font-medium px-4 py-2.5 rounded-lg bg-rust hover:bg-rust-hover text-white transition-all shadow-warm-sm hover:shadow-glow-rust hover:-translate-y-px"
           >
             Hubungi Garasi
           </a>
         </div>
 
-        {/* Mobile Hamburger */}
+        {/* Mobile Bar */}
         <div className="flex md:hidden items-center space-x-2">
           <button
+            type="button"
             onClick={onOpenCheckBooking}
-            className="text-xs font-medium text-ink px-3 py-1.5 rounded-lg border border-sand-200 bg-sand-50"
+            className="text-xs font-medium text-ink px-3 py-1.5 rounded-lg border border-sand-300 bg-white/70"
           >
             Lacak
           </button>
           <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-lg text-ink hover:bg-sand-100"
-            aria-label="Toggle menu"
+            ref={menuButtonRef}
+            type="button"
+            onClick={() => setMobileOpen((open) => !open)}
+            aria-label={mobileOpen ? "Tutup menu" : "Buka menu"}
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-menu"
+            aria-haspopup="true"
+            className="p-2 rounded-lg text-ink hover:bg-sand-100 transition-colors"
           >
-            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            {mobileOpen ? (
+              <X className="w-5 h-5" />
+            ) : (
+              <Menu className="w-5 h-5" />
+            )}
           </button>
         </div>
       </div>
 
       {/* Mobile Drawer */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-b border-sand-200 bg-base px-5 py-5 space-y-4">
-          <div className="flex flex-col space-y-3 text-sm font-medium text-ink">
-            <Link
-              href="#armada"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-1 hover:text-rust"
-            >
-              Katalog Armada
-            </Link>
-            <Link
-              href="#standar-garasi"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-1 hover:text-rust"
-            >
-              Standar Perawatan
-            </Link>
-            <Link
-              href="#ketentuan"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-1 hover:text-rust"
-            >
-              Ketentuan & Tarif
-            </Link>
-            <Link
-              href="/service-center"
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-1 hover:text-rust"
-            >
-              Service Center
-            </Link>
-            <Link
-              href={user?.role === "admin" ? "/admin" : "/login"}
-              onClick={() => setMobileMenuOpen(false)}
-              className="py-1 text-ink-muted hover:text-ink"
-            >
-              {user?.role === "admin" ? "Dashboard Admin" : "Login Admin"}
-            </Link>
+      {mobileOpen && (
+        <div
+          id="mobile-menu"
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu navigasi"
+          className="md:hidden relative z-10 border-b border-sand-200/70 bg-base/95 backdrop-blur-xl px-5 py-5 animate-slide-down motion-reduce:animate-none"
+        >
+          <nav
+            aria-label="Navigasi seluler"
+            className="flex flex-col text-sm font-medium text-ink-muted"
+          >
+            {NAV_ITEMS.map((item, index) => {
+              const active = isItemActive(item);
+              const className = mobileItemClass(active);
+
+              return item.hash ? (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => navigateToSection(item.hash!)}
+                  style={staggerDelay(index)}
+                  aria-current={active ? "location" : undefined}
+                  className={className}
+                >
+                  {item.label}
+                </button>
+              ) : (
+                <Link
+                  key={item.label}
+                  href={item.href!}
+                  onClick={() => setMobileOpen(false)}
+                  style={staggerDelay(index)}
+                  aria-current={active ? "page" : undefined}
+                  className={className}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Akun di mobile */}
+          <div
+            className="mt-4 pt-4 border-t border-sand-200 animate-fade-up motion-reduce:animate-none"
+            style={staggerDelay(NAV_ITEMS.length)}
+          >
+            {user ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-3 px-1">
+                  <span className="w-9 h-9 shrink-0 rounded-full bg-rust/10 text-rust grid place-items-center text-xs font-bold">
+                    {getInitials(user.name)}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-ink truncate">
+                      {user.name}
+                    </p>
+                    <p className="text-[11px] text-ink-muted truncate">
+                      {user.email}
+                    </p>
+                  </div>
+                </div>
+
+                {user.role === "admin" && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-xs font-medium text-ink bg-sand-100 hover:bg-sand-200 transition-colors"
+                  >
+                    <LayoutDashboard className="w-4 h-4" />
+                    Dashboard Admin
+                  </Link>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-xs font-medium text-rust hover:bg-rust/10 transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Keluar
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-xs font-medium text-ink bg-sand-100 hover:bg-sand-200 transition-colors"
+              >
+                Login Admin
+              </Link>
+            )}
           </div>
-          <div className="pt-3 border-t border-sand-200 flex flex-col space-y-2">
+
+          {/* Aksi cepat */}
+          <div
+            className="mt-4 pt-4 border-t border-sand-200 flex flex-col gap-2 animate-fade-up motion-reduce:animate-none"
+            style={staggerDelay(NAV_ITEMS.length + 1)}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setMobileOpen(false);
+                onOpenCheckBooking();
+              }}
+              className="w-full text-center text-xs font-semibold py-3 rounded-lg border border-sand-300 bg-white text-ink hover:border-sand-400 hover:bg-sand-50 transition-colors"
+            >
+              Lacak Reservasi
+            </button>
             <a
-              href="https://wa.me/6281234567890?text=Halo%20ms.Rent,%20saya%20ingin%20tanya%20sewa%20motor"
+              href={WHATSAPP_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full text-center text-xs font-semibold py-2.5 rounded-lg bg-rust text-white"
+              className="w-full text-center text-xs font-semibold py-3 rounded-lg bg-rust hover:bg-rust-hover text-white transition-colors shadow-warm-sm"
             >
-              WhatsApp Garasi (0812-3456-7890)
+              WhatsApp Garasi (0821-5172-8477)
             </a>
           </div>
         </div>
       )}
+
+      {/* Scroll progress bar */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] origin-left bg-gradient-to-r from-rust to-[#E9974F]"
+        style={{ transform: `scaleX(${progress})` }}
+      />
     </header>
   );
 }

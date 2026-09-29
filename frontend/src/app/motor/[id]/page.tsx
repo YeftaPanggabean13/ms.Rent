@@ -7,14 +7,18 @@ import { Bike } from "@/types";
 import { getBikeByID, getBikeCalendar, getBikes } from "@/lib/api";
 import BookingModal from "@/components/BookingModal";
 import Navbar from "@/components/Navbar";
+import Logo from "@/components/Logo";
 import CheckBookingModal from "@/components/CheckBookingModal";
+import TermsModal from "@/components/TermsModal";
+import BikeHoursModal from "@/components/BikeHoursModal";
 import {
-  ArrowLeft,
   Calendar,
+  Check,
   ChevronLeft,
   ChevronRight,
   Fuel,
   Gauge,
+  Clock,
   Settings2,
   Shield,
   Share2,
@@ -30,6 +34,9 @@ export default function BikeDetailPage() {
   const [loading, setLoading] = useState(true);
   const [bookingBike, setBookingBike] = useState<Bike | null>(null);
   const [checkBookingOpen, setCheckBookingOpen] = useState(false);
+  const [trackCode, setTrackCode] = useState("");
+  const [termsOpen, setTermsOpen] = useState(false);
+  const [hoursOpen, setHoursOpen] = useState(false);
 
   // Calendar state
   const [calendarMonth, setCalendarMonth] = useState(() => {
@@ -295,9 +302,18 @@ export default function BikeDetailPage() {
 
             {/* Availability Calendar */}
             <div className="p-6 rounded-2xl bg-white border border-sand-200 shadow-warm-sm">
-              <div className="flex items-center space-x-2 mb-4">
-                <Calendar className="w-4 h-4 text-rust" />
-                <h3 className="font-serif text-lg font-bold text-ink">Kalender Ketersediaan</h3>
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex items-center space-x-2">
+                  <Calendar className="w-4 h-4 text-rust" />
+                  <h3 className="font-serif text-lg font-bold text-ink">Kalender Ketersediaan</h3>
+                </div>
+                <button
+                  onClick={() => setHoursOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sand-50 hover:bg-sand-100 border border-sand-200 text-rust hover:text-rust-hover text-[11px] font-semibold transition"
+                  title="Lihat jam kosong unit ini"
+                >
+                  <Clock className="w-3.5 h-3.5" /> Lihat Jam Kosong
+                </button>
               </div>
               {renderCalendar()}
             </div>
@@ -330,56 +346,82 @@ export default function BikeDetailPage() {
                     </span>
                     <span className="text-sm text-ink-muted">/ 24 jam</span>
                   </div>
-                  <div className="mt-2 space-y-1 text-xs text-ink-muted">
-                    <div className="flex justify-between">
+                  <div className="mt-2 space-y-1.5 text-xs text-ink-muted">
+                    <div className="flex justify-between items-center gap-2">
                       <span>Mingguan (7 hari)</span>
-                      <span className="font-medium text-ink">{formatRupiah(bike.price_per_day * 7 * 0.9)}</span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-moss bg-moss/10 border border-moss/20 px-1.5 py-0.5 rounded-full">
+                          Hemat 10%
+                        </span>
+                        <span className="font-medium text-ink">{formatRupiah(bike.price_per_day * 7 * 0.9)}</span>
+                      </span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between items-center gap-2">
                       <span>Bulanan (30 hari)</span>
-                      <span className="font-medium text-ink">{formatRupiah(bike.price_per_day * 30 * 0.75)}</span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-bold text-moss bg-moss/10 border border-moss/20 px-1.5 py-0.5 rounded-full">
+                          Hemat 25%
+                        </span>
+                        <span className="font-medium text-ink">{formatRupiah(bike.price_per_day * 30 * 0.75)}</span>
+                      </span>
                     </div>
                   </div>
+
+                  {bike.price_per_hour > 0 && (
+                    <div className="mt-3 pt-3 border-t border-sand-200 flex items-baseline justify-between gap-2">
+                      <span className="text-xs text-ink-muted">Tarif Per Jam (2-23 jam)</span>
+                      <span className="text-base font-semibold text-ink">
+                        {formatRupiah(bike.price_per_hour)}
+                        <span className="text-xs font-normal text-ink-muted"> / jam</span>
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* CTA */}
                 <button
                   onClick={() => setBookingBike(bike)}
-                  disabled={bike.status !== "available"}
-                  className="w-full py-3.5 rounded-xl bg-rust hover:bg-rust-hover text-white font-semibold text-sm transition shadow-warm-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={bike.status === "maintenance"}
+                  className="w-full py-3.5 rounded-full bg-rust hover:bg-rust-hover text-white font-semibold text-sm transition shadow-warm-sm hover:shadow-glow-rust active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                 >
-                  {bike.status === "available" ? "Pesan Unit Ini Sekarang" : "Unit Tidak Tersedia"}
+                  {bike.status === "maintenance" ? "Unit Tidak Tersedia" : "Pesan Unit Ini Sekarang"}
                 </button>
 
                 {/* WhatsApp */}
                 <a
-                  href={`https://wa.me/6281234567890?text=Halo%20ms.Rent,%20saya%20tertarik%20sewa%20${encodeURIComponent(bike.name)}%20(${bike.plate_number})`}
+                  href={`https://wa.me/6282151728477?text=Halo%20ms.Rent,%20saya%20tertarik%20sewa%20${encodeURIComponent(bike.name)}%20(${bike.plate_number})`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full block text-center py-2.5 rounded-xl bg-sand-50 hover:bg-sand-100 border border-sand-200 text-ink text-xs font-medium transition"
+                  className="w-full block text-center py-2.5 rounded-full bg-sand-50 hover:bg-sand-100 border border-sand-200 text-ink text-xs font-medium transition"
                 >
                   Tanya via WhatsApp
                 </a>
 
                 {/* Info */}
                 <div className="space-y-2.5 text-xs text-ink-muted border-t border-sand-200 pt-4">
-                  <div className="flex items-start space-x-2">
-                    <span className="w-1 h-1 mt-1.5 rounded-full bg-moss shrink-0" />
-                    <span>Gratis 2 Helm SNI + Jas Hujan setiap sewa</span>
-                  </div>
-                  <div className="flex items-start space-x-2">
-                    <span className="w-1 h-1 mt-1.5 rounded-full bg-moss shrink-0" />
-                    <span>Unit disanitasi & diservis berkala tiap 2.000 km</span>
-                  </div>
-                  <div className="flex items-start space-x-2">
-                    <span className="w-1 h-1 mt-1.5 rounded-full bg-moss shrink-0" />
-                    <span>Layanan antar-jemput stasiun, hotel & bandara</span>
-                  </div>
-                  <div className="flex items-start space-x-2">
-                    <span className="w-1 h-1 mt-1.5 rounded-full bg-moss shrink-0" />
-                    <span>Dukungan darurat jalanan 24 jam</span>
-                  </div>
+                  {[
+                    "Gratis 2 Helm SNI + Jas Hujan setiap sewa",
+                    "Unit disanitasi & diservis berkala tiap 2.000 km",
+                    "Layanan antar-jemput stasiun, hotel & bandara",
+                    "Dukungan darurat jalanan 24 jam",
+                  ].map((item) => (
+                    <div key={item} className="flex items-start space-x-2">
+                      <span className="shrink-0 w-4 h-4 mt-0.5 rounded-full bg-moss/10 border border-moss/25 flex items-center justify-center">
+                        <Check className="w-2.5 h-2.5 text-moss" />
+                      </span>
+                      <span>{item}</span>
+                    </div>
+                  ))}
                 </div>
+
+                {/* Link Ketentuan */}
+                <button
+                  type="button"
+                  onClick={() => setTermsOpen(true)}
+                  className="flex items-center justify-center gap-1 pt-1 text-[11px] font-semibold text-rust hover:text-rust-hover transition"
+                >
+                  Baca Ketentuan &amp; Syarat Rental <ChevronRight className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
           </div>
@@ -388,12 +430,22 @@ export default function BikeDetailPage() {
         {/* Related Bikes */}
         {relatedBikes.length > 0 && (
           <div className="mt-16 pt-10 border-t border-sand-200">
-            <div className="mb-6">
-              <span className="text-xs font-semibold text-rust tracking-wide">Motor Serupa</span>
-              <h2 className="font-serif text-2xl font-bold text-ink mt-1">
+          <div className="flex items-end justify-between mb-6">
+            <div>
+              <span className="eyebrow-line text-xs font-semibold text-rust tracking-[0.14em] uppercase">
+                Motor Serupa
+              </span>
+              <h2 className="font-serif text-2xl font-bold text-ink mt-2">
                 Pilihan Lain di Kategori {bike.category}
               </h2>
             </div>
+            <Link
+              href="/#armada"
+              className="text-xs font-semibold text-rust hover:text-rust-hover transition hidden sm:block"
+            >
+              Lihat semua katalog →
+            </Link>
+          </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {relatedBikes.map((rb) => (
                 <Link
@@ -427,7 +479,8 @@ export default function BikeDetailPage() {
 
       {/* Footer */}
       <footer className="mt-auto border-t border-sand-200 bg-sand-100/60 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-[11px] text-ink-faint">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-center gap-2.5 text-[11px] text-ink-faint">
+          <Logo size={24} mark />
           <span>&copy; {new Date().getFullYear()} ms.Rent. Garasi Motor Urban.</span>
         </div>
       </footer>
@@ -437,11 +490,22 @@ export default function BikeDetailPage() {
         bike={bookingBike}
         onClose={() => setBookingBike(null)}
         onSuccess={() => {}}
+        onTrackBooking={(code) => {
+          setTrackCode(code);
+          setCheckBookingOpen(true);
+        }}
       />
       <CheckBookingModal
+        key={checkBookingOpen ? `track-${trackCode}` : "closed"}
         isOpen={checkBookingOpen}
-        onClose={() => setCheckBookingOpen(false)}
+        initialCode={trackCode}
+        onClose={() => {
+          setCheckBookingOpen(false);
+          setTrackCode("");
+        }}
       />
+      <TermsModal isOpen={termsOpen} onClose={() => setTermsOpen(false)} />
+      <BikeHoursModal isOpen={hoursOpen} bike={bike} onClose={() => setHoursOpen(false)} />
     </div>
   );
 }

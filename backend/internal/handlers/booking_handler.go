@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -65,6 +66,83 @@ func (h *BookingHandler) GetCalendar(c *gin.Context) {
 	})
 }
 
+// GetBikeHours mengembalikan jam-jam terpakai (beserta statusnya) milik 1 unit pada
+// tanggal tertentu, agar user bisa melihat jam yang masih kosong.
+func (h *BookingHandler) GetBikeHours(c *gin.Context) {
+	bikeID := c.Param("id")
+	dateStr := c.Query("date")
+	if dateStr == "" {
+		dateStr = time.Now().Format("2006-01-02")
+	}
+	day, err := time.ParseInLocation("2006-01-02", dateStr, time.Local)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format tanggal tidak valid (YYYY-MM-DD)"})
+		return
+	}
+
+	dayStart := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, time.Local)
+	dayEnd := dayStart.Add(24 * time.Hour)
+
+	var bookings []models.Booking
+	database.DB.
+		Where("bike_id = ? AND booking_status IN ('pending', 'confirmed', 'active') AND start_date <= ? AND end_date >= ?",
+			bikeID, dayEnd.Format("2006-01-02"), dayStart.Format("2006-01-02")).
+		Order("start_date ASC, start_time ASC").
+		Find(&bookings)
+
+	statusLabels := map[string]string{
+		"pending":   "Menunggu Konfirmasi",
+		"confirmed": "Siap Jalan",
+		"active":    "Sedang Berjalan",
+	}
+
+	type hourInterval struct {
+		Start       string `json:"start"`
+		End         string `json:"end"`
+		Status      string `json:"status"`
+		StatusLabel string `json:"status_label"`
+	}
+	intervals := make([]hourInterval, 0, len(bookings))
+	for i := range bookings {
+		b := &bookings[i]
+		start, end := b.IntervalStart(), b.IntervalEnd()
+		if start.IsZero() || end.IsZero() {
+			continue
+		}
+		// Pangkas ke rentang tanggal yang diminta
+		if start.Before(dayStart) {
+			start = dayStart
+		}
+		if end.After(dayEnd) {
+			end = dayEnd
+		}
+		if !end.After(start) {
+			continue
+		}
+		endLabel := "24:00"
+		if end.Before(dayEnd) {
+			endLabel = end.Format("15:04")
+		}
+		label, ok := statusLabels[b.BookingStatus]
+		if !ok {
+			label = b.BookingStatus
+		}
+		intervals = append(intervals, hourInterval{
+			Start:       start.Format("15:04"),
+			End:         endLabel,
+			Status:      b.BookingStatus,
+			StatusLabel: label,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success":   true,
+		"bike_id":   bikeID,
+		"date":      dateStr,
+		"intervals": intervals,
+	})
+}
+
 // CheckAvailability memeriksa apakah motor tertentu tersedia pada rentang tanggal tertentu
 func (h *BookingHandler) CheckAvailability(c *gin.Context) {
 	bikeID := c.Param("id")
@@ -120,6 +198,13 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Tanggal mulai dan selesai sewa wajib diisi"})
 		return
 	}
+	if input.RentalType == "" {
+		input.RentalType = "daily"
+	}
+	if input.RentalType != "daily" && input.RentalType != "hourly" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tipe sewa tidak dikenal (harian atau per jam)"})
+		return
+	}
 
 	// Cek eksistensi motor
 	var bike models.Bike
@@ -128,15 +213,94 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 		return
 	}
 
-	// Cek overlap booking
-	var overlappingCount int64
-	database.DB.Model(&models.Booking{}).
-		Where("bike_id = ? AND booking_status IN ('confirmed', 'active')", input.BikeID).
-		Where("(start_date <= ? AND end_date >= ?)", input.EndDate, input.StartDate).
-		Count(&overlappingCount)
+	if input.RentalType == "hourly" {
+		if input.StartTime == "" || input.EndTime == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Jam mulai dan jam selesai sewa wajib diisi"})
+			return
+		}
+		startParts := strings.Split(input.StartTime, ":")
+		endParts := strings.Split(input.EndTime, ":")
+		if len(startParts) != 2 || len(endParts) != 2 || startParts[1] != "00" || endParts[1] != "00" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Sewa per jam hanya bisa dipilih per jam penuh (misal 08:00 - 17:00)"})
+			return
+		}
+		if bike.PricePerHour <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Unit ini belum mengaktifkan sewa per jam"})
+			return
+		}
+		durMin := input.DurationMinutes()
+		if durMin <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Waktu selesai sewa harus setelah waktu mulai"})
+			return
+		}
+		if durMin < 2*60 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Durasi sewa per jam minimal 2 jam"})
+			return
+		}
+		if durMin > 23*60 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Durasi sewa per jam maksimal 23 jam (untuk 24 jam ke atas gunakan sewa harian)"})
+			return
+		}
+		input.DurationHours = durMin / 60
+		input.DurationDays = 0
+	} else {
+		// Sewa harian dihitung N x 24 jam sejak jam mulai (jam serah terima unit)
+		if input.StartTime == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Jam mulai sewa wajib diisi (sewa harian dihitung 24 jam dari jam mulai)"})
+			return
+		}
+		dailyParts := strings.Split(input.StartTime, ":")
+		if len(dailyParts) != 2 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Jam mulai sewa tidak valid"})
+			return
+		}
+		dh, errH := strconv.Atoi(dailyParts[0])
+		dm, errM := strconv.Atoi(dailyParts[1])
+		if errH != nil || errM != nil || dh < 0 || dh > 23 || dm < 0 || dm > 59 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Jam mulai sewa tidak valid"})
+			return
+		}
+		input.EndTime = input.StartTime
+		input.DurationHours = 0
+	}
 
-	if overlappingCount > 0 {
-		c.JSON(http.StatusConflict, gin.H{"error": "Motor ini sudah dipesan orang lain pada rentang tanggal yang dipilih"})
+	// Jadwal sewa tidak boleh berada di masa lalu (waktu yang sudah berlalu)
+	now := time.Now()
+	parsedStart, err := time.ParseInLocation("2006-01-02", input.StartDate, time.Local)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tanggal mulai sewa tidak valid"})
+		return
+	}
+	parsedEnd, err := time.ParseInLocation("2006-01-02", input.EndDate, time.Local)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tanggal selesai sewa tidak valid"})
+		return
+	}
+	if parsedEnd.Before(parsedStart) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tanggal selesai sewa tidak boleh sebelum tanggal mulai"})
+		return
+	}
+	// Jam mulai (harian maupun per jam) tidak boleh sudah berlalu
+	mulaiParts := strings.Split(input.StartTime, ":")
+	if len(mulaiParts) != 2 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Jam mulai sewa tidak valid"})
+		return
+	}
+	hour, convErr := strconv.Atoi(mulaiParts[0])
+	minute, minErr := strconv.Atoi(mulaiParts[1])
+	if convErr != nil || minErr != nil || hour < 0 || hour > 23 || minute < 0 || minute > 59 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Jam mulai sewa tidak valid"})
+		return
+	}
+	startAt := time.Date(parsedStart.Year(), parsedStart.Month(), parsedStart.Day(), hour, minute, 0, 0, time.Local)
+	if !startAt.After(now) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Jam mulai sewa sudah berlalu. Silakan pilih jadwal sewa yang masih belum berlalu."})
+		return
+	}
+
+	// Cek overlap booking (interval presisi: harian = setengah hari, per jam = jam persis)
+	if hasConflict(input.BikeID, &input, 0) {
+		c.JSON(http.StatusConflict, gin.H{"error": "Motor ini sudah dipesan orang lain pada rentang jadwal yang dipilih"})
 		return
 	}
 
@@ -147,31 +311,29 @@ func (h *BookingHandler) CreateBooking(c *gin.Context) {
 	todayStr := time.Now().Format("20060102")
 	input.BookingCode = fmt.Sprintf("MSR-%s-%s", todayStr, randomSuffix)
 
-	// Hitung durasi jika belum ada
-	if input.DurationDays <= 0 {
-		start, err1 := time.Parse("2006-01-02", input.StartDate)
-		end, err2 := time.Parse("2006-01-02", input.EndDate)
-		if err1 == nil && err2 == nil {
-			days := int(end.Sub(start).Hours()/24) + 1
-			if days < 1 {
-				days = 1
-			}
-			input.DurationDays = days
-		} else {
-			input.DurationDays = 1
+	// Sewa harian: durasi = N x 24 jam dari jam mulai (tanggal selesai = tanggal kembali)
+	if input.RentalType == "daily" {
+		days := int(parsedEnd.Sub(parsedStart).Hours() / 24)
+		if days < 1 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Sewa harian minimal 1 hari (24 jam penuh dari jam mulai). Tanggal selesai harus setelah tanggal mulai."})
+			return
 		}
+		input.DurationDays = days
 	}
 
-	// Hitung total harga jika belum dihitung frontend
-	if input.TotalPrice <= 0 {
-		basePrice := bike.PricePerDay * float64(input.DurationDays)
-		extraHelmetCost := float64(input.ExtraHelmets) * 15000 * float64(input.DurationDays)
-		deliveryCost := 0.0
-		if input.DeliveryAddress != "" {
-			deliveryCost = 35000 // biaya antar jemput
-		}
-		input.TotalPrice = basePrice + extraHelmetCost + deliveryCost
+	// Hitung total harga di sisi server (sumber kebenaran tunggal)
+	basePrice := bike.PricePerDay * float64(input.DurationDays)
+	rentalDays := float64(input.DurationDays) // biaya helm dihitung per hari
+	if input.RentalType == "hourly" {
+		basePrice = bike.PricePerHour * float64(input.DurationHours)
+		rentalDays = 1 // sewa < 24 jam dihitung 1 hari untuk biaya helm
 	}
+	extraHelmetCost := float64(input.ExtraHelmets) * 15000 * rentalDays
+	deliveryCost := 0.0
+	if input.DeliveryAddress != "" {
+		deliveryCost = 35000 // biaya antar jemput
+	}
+	input.TotalPrice = basePrice + extraHelmetCost + deliveryCost
 
 	if input.PaymentStatus == "" {
 		input.PaymentStatus = "unpaid"
@@ -288,4 +450,302 @@ func (h *BookingHandler) UpdateBookingStatus(c *gin.Context) {
 		"message": "Status booking berhasil diperbarui",
 		"data":    booking,
 	})
+}
+
+// hasConflict memeriksa apakah ada booking lain (pending/confirmed/active) pada motor
+// yang sama dan intervalnya menimpa dengan interval booking yang sedang dicek.
+func hasConflict(bikeID uint, b *models.Booking, excludeID uint) bool {
+	var candidates []models.Booking
+	database.DB.
+		Where("bike_id = ? AND booking_status IN ('pending', 'confirmed', 'active')", bikeID).
+		Where("start_date <= ? AND end_date >= ?", b.EndDate, b.StartDate).
+		Find(&candidates)
+
+	for i := range candidates {
+		if candidates[i].ID == excludeID {
+			continue
+		}
+		if models.Overlaps(&candidates[i], b) {
+			return true
+		}
+	}
+	return false
+}
+
+// canExtend memeriksa apakah status booking memperbolehkan perpanjaman.
+func canExtend(b *models.Booking) bool {
+	return b.BookingStatus == "confirmed" || b.BookingStatus == "active"
+}
+
+// extendCutoff: perpanjangan hanya boleh dilakukan minimal 30 menit sebelum masa sewa habis.
+const extendCutoff = 30 * time.Minute
+
+// checkExtendWindow mengembalikan pesan error bila perpanjangan sudah melewati jendela
+// yang diizinkan (kosong = masih boleh). Berlaku untuk ajukan, terapkan, dan setujui extend.
+func checkExtendWindow(b *models.Booking, now time.Time) string {
+	end := b.IntervalEnd()
+	if end.IsZero() {
+		return "Jadwal selesai sewa tidak valid, hubungi garasi"
+	}
+	if now.Before(end.Add(-extendCutoff)) {
+		return ""
+	}
+	if now.Before(end) {
+		return "Perpanjangan hanya bisa dilakukan minimal 30 menit sebelum masa sewa habis (sisa waktu kurang dari 30 menit)"
+	}
+	return "Masa sewa sudah berakhir, perpanjangan tidak lagi tersedia"
+}
+
+func normalizePhone(s string) string {
+	var digits strings.Builder
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			digits.WriteRune(r)
+		}
+	}
+	p := digits.String()
+	if strings.HasPrefix(p, "0") && len(p) > 1 {
+		p = "62" + p[1:]
+	}
+	return p
+}
+
+func formatIDR(v float64) string {
+	s := strconv.FormatFloat(v, 'f', 0, 64)
+	neg := strings.HasPrefix(s, "-")
+	if neg {
+		s = s[1:]
+	}
+	var out strings.Builder
+	for i, r := range s {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			out.WriteRune('.')
+		}
+		out.WriteRune(r)
+	}
+	if neg {
+		return "-" + out.String()
+	}
+	return out.String()
+}
+
+// applyExtension menerapkan perpanjaman sewa ke booking (mutasi in-memory, belum disimpan).
+func applyExtension(b *models.Booking, hours int, by string) float64 {
+	cost := b.Bike.PricePerHour * float64(hours)
+	b.AddHours(hours)
+	b.ExtendedHours += hours
+	b.TotalPrice += cost
+	if b.PaymentStatus == "paid" {
+		b.PaymentStatus = "unpaid"
+	}
+	entry := fmt.Sprintf("[Extend] +%d jam oleh %s (Rp%s) - jadwal kembali %s %s",
+		hours, by, formatIDR(cost), b.EndDate, b.EndTime)
+	if b.Notes == "" {
+		b.Notes = entry
+	} else {
+		b.Notes += "\n" + entry
+	}
+	b.PendingExtendHours = 0
+	b.PendingExtendCost = 0
+	b.PendingExtendBy = ""
+	return cost
+}
+
+// RequestExtend (publik): pelanggan mengajukan perpanjaman via kode booking + no. WhatsApp.
+// Perpanjaman baru diterapkan setelah admin menyetujui (ExtendDecision).
+func (h *BookingHandler) RequestExtend(c *gin.Context) {
+	var req struct {
+		BookingCode   string `json:"booking_code"`
+		CustomerPhone string `json:"customer_phone"`
+		Hours         int    `json:"hours"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format payload tidak valid"})
+		return
+	}
+	if req.BookingCode == "" || req.CustomerPhone == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Kode booking dan No. WhatsApp wajib diisi"})
+		return
+	}
+	if req.Hours < 1 || req.Hours > 23 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Durasi perpanjaman minimal 1 jam dan maksimal 23 jam"})
+		return
+	}
+
+	var booking models.Booking
+	if err := database.DB.Preload("Bike").
+		Where("booking_code = ?", strings.ToUpper(req.BookingCode)).
+		First(&booking).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Kode booking tidak ditemukan"})
+		return
+	}
+
+	if normalizePhone(req.CustomerPhone) != normalizePhone(booking.CustomerPhone) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Nomor WhatsApp tidak sesuai dengan data pemesan"})
+		return
+	}
+	if !canExtend(&booking) {
+		c.JSON(http.StatusConflict, gin.H{"error": "Hanya reservasi berstatus Siap Jalan atau Aktif yang bisa diperpanjang"})
+		return
+	}
+	if msg := checkExtendWindow(&booking, time.Now()); msg != "" {
+		c.JSON(http.StatusConflict, gin.H{"error": msg})
+		return
+	}
+	if booking.PendingExtendHours > 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": "Masih ada permintaan perpanjaman yang menunggu persetujuan garasi"})
+		return
+	}
+	if booking.Bike == nil || booking.Bike.PricePerHour <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tarif per jam unit ini belum diatur, hubungi garasi untuk perpanjaman"})
+		return
+	}
+
+	// Uji coba interval baru apakah bentrok dengan reservasi lain
+	extended := booking
+	extended.AddHours(req.Hours)
+	if hasConflict(booking.BikeID, &extended, booking.ID) {
+		c.JSON(http.StatusConflict, gin.H{"error": "Jadwal perpanjaman bentrok dengan reservasi lain pada unit ini"})
+		return
+	}
+
+	booking.PendingExtendHours = req.Hours
+	booking.PendingExtendCost = booking.Bike.PricePerHour * float64(req.Hours)
+	booking.PendingExtendBy = "customer"
+
+	if err := database.DB.Save(&booking).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal mengajukan perpanjaman: " + err.Error()})
+		return
+	}
+
+	database.DB.Preload("Bike").First(&booking, booking.ID)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": fmt.Sprintf("Permintaan perpanjaman +%d jam (Rp%s) terkirim. Menunggu persetujuan garasi.", req.Hours, formatIDR(booking.PendingExtendCost)),
+		"data":    booking,
+	})
+}
+
+// AdminExtend (admin): memperpanjang reservasi langsung tanpa menunggu persetujuan.
+func (h *BookingHandler) AdminExtend(c *gin.Context) {
+	booking, ok := h.loadExtendable(c)
+	if !ok {
+		return
+	}
+
+	var req struct {
+		Hours int `json:"hours"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Hours < 1 || req.Hours > 23 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Durasi perpanjaman harus antara 1 sampai 23 jam"})
+		return
+	}
+	if booking.Bike == nil || booking.Bike.PricePerHour <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tarif per jam unit ini belum diatur"})
+		return
+	}
+	if msg := checkExtendWindow(booking, time.Now()); msg != "" {
+		c.JSON(http.StatusConflict, gin.H{"error": msg})
+		return
+	}
+
+	extended := *booking
+	extended.AddHours(req.Hours)
+	if hasConflict(booking.BikeID, &extended, booking.ID) {
+		c.JSON(http.StatusConflict, gin.H{"error": "Jadwal perpanjaman bentrok dengan reservasi lain pada unit ini"})
+		return
+	}
+
+	cost := applyExtension(booking, req.Hours, "admin")
+	if err := database.DB.Save(booking).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menerapkan perpanjaman: " + err.Error()})
+		return
+	}
+
+	database.DB.Preload("Bike").First(booking, booking.ID)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": fmt.Sprintf("Reservasi diperpanjang +%d jam, tagihan bertambah Rp%s", req.Hours, formatIDR(cost)),
+		"data":    booking,
+	})
+}
+
+// ExtendDecision (admin): menyetujui atau menolak permintaan perpanjaman pelanggan.
+func (h *BookingHandler) ExtendDecision(c *gin.Context) {
+	booking, ok := h.loadExtendable(c)
+	if !ok {
+		return
+	}
+
+	var req struct {
+		Approve *bool `json:"approve"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.Approve == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Field 'approve' (true/false) wajib diisi"})
+		return
+	}
+	if booking.PendingExtendHours <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Tidak ada permintaan perpanjaman pada reservasi ini"})
+		return
+	}
+
+	if !*req.Approve {
+		booking.PendingExtendHours = 0
+		booking.PendingExtendCost = 0
+		booking.PendingExtendBy = ""
+		if err := database.DB.Save(booking).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui reservasi: " + err.Error()})
+			return
+		}
+		database.DB.Preload("Bike").First(booking, booking.ID)
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "Permintaan perpanjaman ditolak",
+			"data":    booking,
+		})
+		return
+	}
+
+	hours := booking.PendingExtendHours
+
+	// Persetujuan juga wajib masih di dalam jendela 30 menit sebelum masa sewa habis
+	if msg := checkExtendWindow(booking, time.Now()); msg != "" {
+		c.JSON(http.StatusConflict, gin.H{"error": msg + " — permintaan perpanjaman tidak dapat disetujui"})
+		return
+	}
+
+	extended := *booking
+	extended.AddHours(hours)
+	if hasConflict(booking.BikeID, &extended, booking.ID) {
+		c.JSON(http.StatusConflict, gin.H{"error": "Jadwal perpanjaman bentrok dengan reservasi lain, persetujuan dibatalkan"})
+		return
+	}
+
+	cost := applyExtension(booking, hours, "disetujui admin")
+	if err := database.DB.Save(booking).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal menerapkan perpanjaman: " + err.Error()})
+		return
+	}
+
+	database.DB.Preload("Bike").First(booking, booking.ID)
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": fmt.Sprintf("Perpanjaman +%d jam disetujui, tagihan bertambah Rp%s", hours, formatIDR(cost)),
+		"data":    booking,
+	})
+}
+
+// loadExtendable memuat booking by id dan memvalidasi kelayakan perpanjaman.
+func (h *BookingHandler) loadExtendable(c *gin.Context) (*models.Booking, bool) {
+	booking := &models.Booking{}
+	if err := database.DB.Preload("Bike").First(booking, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Data booking tidak ditemukan"})
+		return nil, false
+	}
+	if !canExtend(booking) {
+		c.JSON(http.StatusConflict, gin.H{"error": "Hanya reservasi berstatus Siap Jalan atau Aktif yang bisa diperpanjang"})
+		return nil, false
+	}
+	return booking, true
 }

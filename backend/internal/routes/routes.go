@@ -65,6 +65,14 @@ func SetupRouter() *gin.Engine {
 			bikes.GET("/:id", bikeHandler.GetBikeByID)
 			bikes.GET("/:id/availability", bookingHandler.CheckAvailability)
 			bikes.GET("/:id/calendar", bookingHandler.GetCalendar)
+			bikes.GET("/:id/hours", bookingHandler.GetBikeHours)
+		}
+
+		// ====== Service Center routes (public read) ======
+		serviceCenters := api.Group("/service-centers")
+		{
+			serviceCenters.GET("", serviceCenterHandler.GetServiceCenters)
+			serviceCenters.GET("/:id", serviceCenterHandler.GetServiceCenterByID)
 		}
 
 		// ====== Service Center routes (public read) ======
@@ -79,6 +87,7 @@ func SetupRouter() *gin.Engine {
 		{
 			bookings.POST("", bookingHandler.CreateBooking)
 			bookings.GET("/code/:code", bookingHandler.GetBookingByCode)
+			bookings.POST("/extend", bookingHandler.RequestExtend)
 		}
 
 		// ====== Admin-protected routes ======
@@ -93,6 +102,8 @@ func SetupRouter() *gin.Engine {
 			// Bookings management
 			admin.GET("/bookings", bookingHandler.GetBookings)
 			admin.PATCH("/bookings/:id/status", bookingHandler.UpdateBookingStatus)
+			admin.POST("/bookings/:id/extend", bookingHandler.AdminExtend)
+			admin.POST("/bookings/:id/extend/decision", bookingHandler.ExtendDecision)
 
 			// Dashboard
 			admin.GET("/dashboard/stats", dashboardHandler.GetDashboardStats)

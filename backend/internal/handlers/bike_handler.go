@@ -114,6 +114,7 @@ func (h *BikeHandler) UpdateBike(c *gin.Context) {
 	bike.Year = input.Year
 	bike.Transmission = input.Transmission
 	bike.PricePerDay = input.PricePerDay
+	bike.PricePerHour = input.PricePerHour
 	bike.PlateNumber = input.PlateNumber
 	bike.Status = input.Status
 	bike.ImageURL = input.ImageURL

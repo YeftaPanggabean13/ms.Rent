@@ -7,6 +7,7 @@ export interface Bike {
   year: number;
   transmission: string;
   price_per_day: number;
+  price_per_hour: number;
   plate_number: string;
   status: 'available' | 'rented' | 'maintenance';
   image_url: string;
@@ -28,6 +29,14 @@ export interface Booking {
   start_date: string;
   end_date: string;
   duration_days: number;
+  rental_type?: 'daily' | 'hourly';
+  start_time?: string;
+  end_time?: string;
+  duration_hours?: number;
+  extended_hours?: number;
+  pending_extend_hours?: number;
+  pending_extend_cost?: number;
+  pending_extend_by?: string;
   pickup_location?: string;
   return_location?: string;
   delivery_address?: string;
