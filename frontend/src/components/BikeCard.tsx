@@ -1,16 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import { Clock } from "lucide-react";
 import { Bike } from "@/types";
 
 interface BikeCardProps {
   bike: Bike;
   onSelect: (bike: Bike) => void;
+  onInfo?: (bike: Bike) => void;
   variant?: "spotlight" | "standard";
 }
 
-export default function BikeCard({ bike, onSelect, variant = "standard" }: BikeCardProps) {
+export default function BikeCard({ bike, onSelect, onInfo, variant = "standard" }: BikeCardProps) {
   const isAvailable = bike.status === "available";
+  // Unit yang sedang disewa tetap bisa dipesan untuk jam/jadwal di luar sewa berjalan.
+  // Hanya unit dalam servis yang tidak bisa dipesan.
+  const canBook = bike.status !== "maintenance";
 
   const formatRupiah = (val: number) => {
     return new Intl.NumberFormat("id-ID", {
@@ -24,7 +29,7 @@ export default function BikeCard({ bike, onSelect, variant = "standard" }: BikeC
 
   if (variant === "spotlight") {
     return (
-      <div className="group rounded-2xl bg-white border border-sand-200 hover:border-sand-300 transition-all duration-300 overflow-hidden shadow-warm-md flex flex-col lg:grid lg:grid-cols-12">
+      <div className="group rounded-2xl bg-white border border-sand-200 hover:border-sand-300 transition-all duration-300 overflow-hidden shadow-warm-md hover:shadow-warm-lg flex flex-col lg:grid lg:grid-cols-12">
         {/* Large Bleed / DoF Photo Container */}
         <Link href={`/motor/${bike.id}`} className="relative lg:col-span-7 aspect-[16/10] lg:aspect-auto w-full overflow-hidden bg-sand-100 block">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -36,10 +41,16 @@ export default function BikeCard({ bike, onSelect, variant = "standard" }: BikeC
           <div className="absolute inset-0 bg-gradient-to-t from-ink/30 via-transparent to-transparent opacity-60" />
 
           {/* Availability Status */}
-          {!isAvailable ? (
+          {bike.status === "maintenance" ? (
             <div className="absolute inset-0 bg-ink/75 backdrop-blur-sm flex items-center justify-center p-4">
               <span className="px-4 py-1.5 rounded-full text-xs font-medium bg-sand-100 text-ink border border-sand-200">
-                {bike.status === "rented" ? "Unit Sedang Disewa" : "Dalam Jadwal Servis"}
+                Dalam Jadwal Servis
+              </span>
+            </div>
+          ) : bike.status === "rented" ? (
+            <div className="absolute top-4 left-4">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-sand-100/95 backdrop-blur text-ink border border-sand-200 shadow-warm-sm">
+                Sedang Disewa · bisa disewa di luar jam sewa
               </span>
             </div>
           ) : (
@@ -103,19 +114,36 @@ export default function BikeCard({ bike, onSelect, variant = "standard" }: BikeC
                 </span>
                 <span className="text-xs text-ink-muted font-normal">/ 24 jam</span>
               </div>
+              {bike.price_per_hour > 0 && (
+                <span className="block text-[11px] text-ink-muted mt-1">
+                  <span className="font-semibold text-ink-light">{formatRupiah(bike.price_per_hour)}</span> / jam
+                  <span className="text-ink-faint"> (2-23 jam)</span>
+                </span>
+              )}
             </div>
 
-            <button
-              onClick={() => onSelect(bike)}
-              disabled={!isAvailable}
-              className={`px-5 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all shadow-warm-sm ${
-                isAvailable
-                  ? "bg-rust hover:bg-rust-hover text-white active:scale-95"
-                  : "bg-sand-200 text-ink-faint cursor-not-allowed"
-              }`}
-            >
-              {isAvailable ? "Pesan Unit Ini" : "Tidak Tersedia"}
-            </button>
+            <div className="flex items-center gap-2">
+              {onInfo && (
+                <button
+                  onClick={() => onInfo(bike)}
+                  className="px-3 py-3 rounded-xl border border-sand-200 bg-sand-50 hover:bg-sand-100 text-rust hover:text-rust-hover transition"
+                  title="Lihat jam kosong unit ini"
+                >
+                  <Clock className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                onClick={() => onSelect(bike)}
+                disabled={!canBook}
+                className={`px-5 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all shadow-warm-sm ${
+                  canBook
+                    ? "bg-rust hover:bg-rust-hover text-white active:scale-95"
+                    : "bg-sand-200 text-ink-faint cursor-not-allowed"
+                }`}
+              >
+                {canBook ? "Pesan Unit Ini" : "Tidak Tersedia"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -124,23 +152,31 @@ export default function BikeCard({ bike, onSelect, variant = "standard" }: BikeC
 
   // Standard Card Variant
   return (
-    <div className="group rounded-xl bg-white border border-sand-200 hover:border-sand-300 transition-all duration-300 flex flex-col overflow-hidden shadow-warm-sm hover:shadow-warm-md">
+    <div className="group rounded-2xl bg-white border border-sand-200 hover:border-sand-300 transition-all duration-300 flex flex-col overflow-hidden shadow-warm-sm hover:shadow-warm-lg hover:-translate-y-1">
       {/* Gambar Motor */}
       <Link href={`/motor/${bike.id}`} className="relative aspect-[16/10] w-full overflow-hidden bg-sand-100 block">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={bike.image_url}
           alt={bike.name}
-          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-700"
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-ink/25 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-        {!isAvailable && (
-          <div className="absolute inset-0 bg-ink/75 backdrop-blur-sm flex items-center justify-center p-3">
-            <span className="px-3 py-1 rounded-full text-[11px] font-medium bg-sand-100 text-ink border border-sand-200">
+        {/* Status Badge */}
+        <div className="absolute top-3 left-3">
+          {isAvailable ? (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-white/95 backdrop-blur text-moss border border-moss/20 shadow-warm-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-moss" />
+              Siap Sewa
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-ink/90 backdrop-blur text-sand-100 border border-white/10 shadow-warm-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-rust" />
               {bike.status === "rented" ? "Sedang Disewa" : "Jadwal Servis"}
             </span>
-          </div>
-        )}
+          )}
+        </div>
       </Link>
 
       {/* Content */}
@@ -187,25 +223,42 @@ export default function BikeCard({ bike, onSelect, variant = "standard" }: BikeC
         </div>
 
         {/* Pricing & CTA */}
-        <div className="pt-3 border-t border-sand-200 flex items-center justify-between">
+        <div className="pt-3 border-t border-sand-200 flex items-end justify-between gap-3">
           <div>
+            <span className="block text-[10px] text-ink-faint font-medium">Mulai dari</span>
             <div className="flex items-baseline space-x-1">
               <span className="font-serif text-xl font-bold text-rust">{formatRupiah(bike.price_per_day)}</span>
               <span className="text-[11px] text-ink-muted font-normal">/ hari</span>
             </div>
+            {bike.price_per_hour > 0 && (
+              <span className="block text-[10px] text-ink-muted mt-0.5">
+                {formatRupiah(bike.price_per_hour)} / jam
+              </span>
+            )}
           </div>
 
-          <button
-            onClick={() => onSelect(bike)}
-            disabled={!isAvailable}
-            className={`px-3.5 py-2 rounded-lg text-xs font-semibold transition-all ${
-              isAvailable
-                ? "bg-ink hover:bg-rust text-white shadow-warm-sm active:scale-95"
-                : "bg-sand-200 text-ink-faint cursor-not-allowed"
-            }`}
-          >
-            {isAvailable ? "Pesan Unit" : "Penuh"}
-          </button>
+          <div className="flex items-center gap-2">
+            {onInfo && (
+              <button
+                onClick={() => onInfo(bike)}
+                className="p-2.5 rounded-xl border border-sand-200 bg-sand-50 hover:bg-sand-100 text-rust hover:text-rust-hover transition"
+                title="Lihat jam kosong unit ini"
+              >
+                <Clock className="w-4 h-4" />
+              </button>
+            )}
+            <button
+              onClick={() => onSelect(bike)}
+              disabled={!canBook}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
+                canBook
+                  ? "bg-rust hover:bg-rust-hover text-white shadow-warm-sm hover:shadow-glow-rust active:scale-95"
+                  : "bg-sand-200 text-ink-faint cursor-not-allowed"
+              }`}
+            >
+              {canBook ? "Pesan Unit" : "Penuh"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

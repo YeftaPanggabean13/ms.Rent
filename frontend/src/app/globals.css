@@ -39,3 +39,83 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #BCB3A5;
 }
+
+@layer base {
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Fokus terlihat & konsisten (a11y + navigasi keyboard) */
+  :focus-visible {
+    outline: 2px solid rgba(193, 98, 42, 0.6);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* Accordion native tanpa marker bawaan */
+  summary {
+    list-style: none;
+    cursor: pointer;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+}
+
+@layer components {
+  /* Pola grid halus untuk latar hero */
+  .bg-grid-soft {
+    background-image:
+      linear-gradient(to right, rgba(27, 36, 48, 0.045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(27, 36, 48, 0.045) 1px, transparent 1px);
+    background-size: 46px 46px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000 30%, transparent 78%);
+    mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000 30%, transparent 78%);
+  }
+
+  /* Versi terang untuk hero berlatar gelap */
+  .bg-grid-light {
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    background-size: 46px 46px;
+    -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 0%, #000 20%, transparent 75%);
+    mask-image: radial-gradient(ellipse 90% 80% at 50% 0%, #000 20%, transparent 75%);
+  }
+
+  /* Garis aksen eyebrow section */
+  .eyebrow-line::before {
+    content: '';
+    display: inline-block;
+    width: 1.5rem;
+    height: 1px;
+    background: currentColor;
+    vertical-align: middle;
+    margin-right: 0.6rem;
+    opacity: 0.7;
+  }
+
+  /* Panel accordion terkontrol (tinggi transisi mulus 0fr → 1fr) */
+  .accordion-panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .accordion-panel[data-open='true'] {
+    grid-template-rows: 1fr;
+  }
+
+  .accordion-panel > div {
+    overflow: hidden;
+    min-height: 0;
+  }
+}

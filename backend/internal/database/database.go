@@ -55,6 +55,8 @@ func InitDB() *gorm.DB {
 	seedBikes(db)
 	seedAdmin(db)
 	seedServiceCenters(db)
+	// Catatan: harga per jam sepenuhnya diatur admin lewat panel (0 = sewa per jam nonaktif),
+	// jadi tidak ada backfill otomatis agar pilihan admin tidak tertimpa saat server restart.
 
 	DB = db
 	return db
@@ -77,6 +79,7 @@ func seedBikes(db *gorm.DB) {
 			Year:         2024,
 			Transmission: "Automatic",
 			PricePerDay:  135000,
+			PricePerHour: 7000,
 			PlateNumber:  "B 4120 KZA",
 			Status:       "available",
 			ImageURL:     "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&w=800&q=80",
@@ -91,6 +94,7 @@ func seedBikes(db *gorm.DB) {
 			Year:         2024,
 			Transmission: "Automatic",
 			PricePerDay:  140000,
+			PricePerHour: 7000,
 			PlateNumber:  "B 3899 SWR",
 			Status:       "available",
 			ImageURL:     "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=800&q=80",
@@ -105,6 +109,7 @@ func seedBikes(db *gorm.DB) {
 			Year:         2024,
 			Transmission: "Automatic",
 			PricePerDay:  110000,
+			PricePerHour: 6000,
 			PlateNumber:  "B 5521 TGB",
 			Status:       "available",
 			ImageURL:     "https://images.unsplash.com/photo-1609630875171-b1321377ee65?auto=format&fit=crop&w=800&q=80",
@@ -119,6 +124,7 @@ func seedBikes(db *gorm.DB) {
 			Year:         2023,
 			Transmission: "Automatic",
 			PricePerDay:  220000,
+			PricePerHour: 11000,
 			PlateNumber:  "B 1968 VSP",
 			Status:       "available",
 			ImageURL:     "https://images.unsplash.com/photo-1515777315835-281b94c9589f?auto=format&fit=crop&w=800&q=80",
@@ -133,6 +139,7 @@ func seedBikes(db *gorm.DB) {
 			Year:         2024,
 			Transmission: "Automatic",
 			PricePerDay:  125000,
+			PricePerHour: 6500,
 			PlateNumber:  "B 6023 ARX",
 			Status:       "available",
 			ImageURL:     "https://images.unsplash.com/photo-1547549082-6bc09f2049ae?auto=format&fit=crop&w=800&q=80",
@@ -147,6 +154,7 @@ func seedBikes(db *gorm.DB) {
 			Year:         2024,
 			Transmission: "Automatic",
 			PricePerDay:  95000,
+			PricePerHour: 5500,
 			PlateNumber:  "B 4712 SCP",
 			Status:       "available",
 			ImageURL:     "https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&w=800&q=80",
@@ -161,6 +169,7 @@ func seedBikes(db *gorm.DB) {
 			Year:         2024,
 			Transmission: "Automatic",
 			PricePerDay:  290000,
+			PricePerHour: 15000,
 			PlateNumber:  "B 2500 XMX",
 			Status:       "available",
 			ImageURL:     "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&w=800&q=80",
@@ -175,6 +184,7 @@ func seedBikes(db *gorm.DB) {
 			Year:         2023,
 			Transmission: "Manual",
 			PricePerDay:  175000,
+			PricePerHour: 9500,
 			PlateNumber:  "B 6711 KLX",
 			Status:       "available",
 			ImageURL:     "https://images.unsplash.com/photo-1511994298241-608e28f14fde?auto=format&fit=crop&w=800&q=80",
@@ -203,7 +213,7 @@ func seedAdmin(db *gorm.DB) {
 		Email:    "admin@msrent.com",
 		Password: string(hashedPassword),
 		Role:     "admin",
-		Phone:    "081234567890",
+		Phone:    "082151728477",
 		IsActive: true,
 	}
 	db.Create(&admin)

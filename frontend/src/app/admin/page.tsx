@@ -1,20 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bike, Booking, DashboardStats, User } from "@/types";
+import { Bike, Booking, DashboardStats } from "@/types";
 import {
   getBikes,
   getBookings,
   getDashboardStats,
   updateBookingStatus,
-  getStoredUser,
-  getStoredToken,
+  adminExtendBooking,
+  decideExtend,
   clearAuth,
   adminCreateBike,
   adminUpdateBike,
   adminDeleteBike,
+  subscribeAuth,
+  getAuthSnapshot,
+  getServerAuthSnapshot,
 } from "@/lib/api";
 import {
   ArrowLeft,
@@ -25,18 +28,67 @@ import {
   Trash2,
   X,
   Save,
+  Search,
+  Bike as BikeIcon,
+  CalendarCheck,
+  Wallet,
+  Activity,
+  Clock,
+  Check,
 } from "lucide-react";
+import {
+  BookingTrendChart,
+  StatusDonut,
+  BrandRevenueBars,
+  FleetUtilization,
+} from "@/components/admin/DashboardCharts";
+import Logo from "@/components/Logo";
+
+const STATUS_FILTERS = [
+  { value: "all", label: "Semua" },
+  { value: "pending", label: "Menunggu" },
+  { value: "confirmed", label: "Siap Jalan" },
+  { value: "active", label: "Aktif" },
+  { value: "completed", label: "Selesai" },
+] as const;
+
+type StatusFilter = (typeof STATUS_FILTERS)[number]["value"];
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+function countBookingsThisWeek(bookings: Booking[]): number {
+  const now = Date.now();
+  return bookings.filter(
+    (b) => b.created_at && now - new Date(b.created_at).getTime() < WEEK_MS
+  ).length;
+}
 
 export default function AdminPage() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
+  const { token, user } = useSyncExternalStore(
+    subscribeAuth,
+    getAuthSnapshot,
+    getServerAuthSnapshot
+  );
+  const isAdmin = Boolean(token && user && user.role === "admin");
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [bikes, setBikes] = useState<Bike[]>([]);
-  const [activeTab, setActiveTab] = useState<"bookings" | "bikes">("bookings");
+  const [newThisWeek, setNewThisWeek] = useState(0);
+  const [activeTab, setActiveTab] = useState<"bookings" | "bikes" | "pricing">("bookings");
   const [loading, setLoading] = useState(true);
+
+  // Waktu sekarang (diperbarui tiap 30 detik) untuk mengecek jendela perpanjaman (extend)
+  const [nowTs, setNowTs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTs(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Filter interaktif untuk tabel reservasi
+  const [bookingQuery, setBookingQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   // Bike form state
   const [showBikeForm, setShowBikeForm] = useState(false);
@@ -49,6 +101,7 @@ export default function AdminPage() {
     year: number;
     transmission: string;
     price_per_day: number;
+    price_per_hour: number;
     plate_number: string;
     image_url: string;
     features: string;
@@ -62,6 +115,7 @@ export default function AdminPage() {
     year: 2024,
     transmission: "Automatic",
     price_per_day: 100000,
+    price_per_hour: 5500,
     plate_number: "",
     image_url: "",
     features: "",
@@ -71,34 +125,60 @@ export default function AdminPage() {
   const [formError, setFormError] = useState("");
   const [formLoading, setFormLoading] = useState(false);
 
-  // Check auth on mount
-  useEffect(() => {
-    const token = getStoredToken();
-    const storedUser = getStoredUser();
-    if (!token || !storedUser || storedUser.role !== "admin") {
-      router.push("/login");
-      return;
-    }
-    setUser(storedUser);
-    setAuthChecked(true);
-  }, [router]);
+  // Tarif per jam state (tab "Tarif Per Jam")
+  const [priceDraft, setPriceDraft] = useState<Record<number, number>>({});
+  const [savingPriceId, setSavingPriceId] = useState<number | null>(null);
+  const [savingAllPrices, setSavingAllPrices] = useState(false);
+  const [priceMsg, setPriceMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const loadData = async () => {
-    setLoading(true);
+  // Arahkan ke login jika bukan admin (auth dibaca dari store localStorage)
+  useEffect(() => {
+    if (!isAdmin) router.push("/login");
+  }, [isAdmin, router]);
+
+  const fetchDashboardData = async () => {
     const [s, bList, bkList] = await Promise.all([
       getDashboardStats(),
       getBikes(),
       getBookings(),
     ]);
-    setStats(s);
-    setBikes(bList);
-    setBookings(bkList);
+    return { stats: s, bikes: bList, bookings: bkList };
+  };
+
+  const applyDashboardData = (data: {
+    stats: DashboardStats;
+    bikes: Bike[];
+    bookings: Booking[];
+  }) => {
+    setStats(data.stats);
+    setBikes(data.bikes);
+    setBookings(data.bookings);
+    setNewThisWeek(countBookingsThisWeek(data.bookings));
+    // Pertahankan draft tarif per jam yang belum disimpan, buang yang sudah dihapus
+    setPriceDraft((prev) => {
+      const next: Record<number, number> = {};
+      for (const b of data.bikes) next[b.id] = prev[b.id] ?? b.price_per_hour ?? 0;
+      return next;
+    });
     setLoading(false);
   };
 
+  const loadData = async () => {
+    setLoading(true);
+    applyDashboardData(await fetchDashboardData());
+  };
+
+  // Muat data dashboard setelah status admin terkonfirmasi
   useEffect(() => {
-    if (authChecked) loadData();
-  }, [authChecked]);
+    if (!isAdmin) return;
+    let cancelled = false;
+    fetchDashboardData().then((data) => {
+      if (!cancelled) applyDashboardData(data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin]);
 
   const handleLogout = () => {
     clearAuth();
@@ -117,12 +197,107 @@ export default function AdminPage() {
     loadData();
   };
 
+  // ====== Perpanjaman sewa (extend) ======
+  const [extendTarget, setExtendTarget] = useState<Booking | null>(null);
+  const [extendHours, setExtendHours] = useState(1);
+  const [extendLoading, setExtendLoading] = useState(false);
+  const [extendError, setExtendError] = useState("");
+
+  const openExtendForm = (b: Booking) => {
+    setExtendTarget(b);
+    setExtendHours(1);
+    setExtendError("");
+    setExtendLoading(false);
+  };
+
+  const handleAdminExtend = async () => {
+    if (!extendTarget?.id) return;
+    if (!extendWindowOk(extendTarget)) {
+      setExtendError("Perpanjangan hanya bisa dilakukan minimal 30 menit sebelum masa sewa habis.");
+      return;
+    }
+    setExtendLoading(true);
+    setExtendError("");
+    const res = await adminExtendBooking(extendTarget.id, extendHours);
+    setExtendLoading(false);
+    if (res.success) {
+      setExtendTarget(null);
+      loadData();
+    } else {
+      setExtendError(res.error || "Gagal memperpanjang reservasi");
+    }
+  };
+
+  const handleExtendDecision = async (id: number, approve: boolean) => {
+    const res = await decideExtend(id, approve);
+    if (!res.success) {
+      alert(res.error || "Gagal memproses keputusan perpanjaman");
+    }
+    loadData();
+  };
+
   const formatRupiah = (val: number) => {
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
       maximumFractionDigits: 0,
     }).format(val);
+  };
+
+  const durationLabel = (b: Booking) =>
+    b.rental_type === "hourly"
+      ? `${b.duration_hours ?? 0} Jam Sewa (per jam)`
+      : `${b.duration_days} Hari Sewa${b.extended_hours ? ` + ${b.extended_hours} Jam extend` : ""}`;
+
+  // Jendela perpanjangan: minimal 30 menit sebelum masa sewa habis (end_date + end_time)
+  const extendWindowOk = (b: Booking) => {
+    const base = new Date(`${b.end_date}T00:00:00`).getTime();
+    const et = b.end_time && b.end_time !== "24:00" ? b.end_time : "";
+    const end = et
+      ? base + ((Number(et.split(":")[0]) || 0) * 60 + (Number(et.split(":")[1]) || 0)) * 60000
+      : base + 86400000;
+    return end - nowTs >= 30 * 60 * 1000;
+  };
+
+  const filteredBookings = useMemo(() => {
+    const q = bookingQuery.trim().toLowerCase();
+    return bookings.filter((b) => {
+      const matchStatus = statusFilter === "all" || b.booking_status === statusFilter;
+      const matchQuery =
+        !q ||
+        (b.customer_name || "").toLowerCase().includes(q) ||
+        (b.booking_code || "").toLowerCase().includes(q) ||
+        (b.customer_phone || "").toLowerCase().includes(q);
+      return matchStatus && matchQuery;
+    });
+  }, [bookings, bookingQuery, statusFilter]);
+
+  const todayLabel = new Date().toLocaleDateString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  const scrollToTabs = () => {
+    document.getElementById("tab-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const goToBookings = (filter: StatusFilter) => {
+    setActiveTab("bookings");
+    setStatusFilter(filter);
+    setBookingQuery("");
+    scrollToTabs();
+  };
+
+  const goToBikes = () => {
+    setActiveTab("bikes");
+    scrollToTabs();
+  };
+
+  const resetBookingFilter = () => {
+    setStatusFilter("all");
+    setBookingQuery("");
   };
 
   // Bike CRUD handlers
@@ -136,6 +311,7 @@ export default function AdminPage() {
       year: 2024,
       transmission: "Automatic",
       price_per_day: 100000,
+      price_per_hour: 5500,
       plate_number: "",
       image_url: "",
       features: "",
@@ -156,6 +332,7 @@ export default function AdminPage() {
       year: bike.year,
       transmission: bike.transmission,
       price_per_day: bike.price_per_day,
+      price_per_hour: bike.price_per_hour ?? 0,
       plate_number: bike.plate_number,
       image_url: bike.image_url,
       features: bike.features,
@@ -202,7 +379,54 @@ export default function AdminPage() {
     loadData();
   };
 
-  if (!authChecked) {
+  // ====== Tarif per jam (tab pricing) ======
+  const suggestedHourly = (bike: Bike) => Math.ceil(bike.price_per_day / 24);
+  const isPriceDirty = (bike: Bike) =>
+    (priceDraft[bike.id] ?? bike.price_per_hour ?? 0) !== (bike.price_per_hour ?? 0);
+
+  const dirtyPriceCount = useMemo(
+    () => bikes.filter(isPriceDirty).length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bikes, priceDraft]
+  );
+
+  const handleSaveHourlyPrice = async (bike: Bike) => {
+    const value = priceDraft[bike.id] ?? 0;
+    setSavingPriceId(bike.id);
+    setPriceMsg(null);
+    const res = await adminUpdateBike(bike.id, { ...bike, price_per_hour: value });
+    setSavingPriceId(null);
+    if (res.success) {
+      setPriceMsg({ ok: true, text: `${bike.name}: tarif per jam disimpan ${formatRupiah(value)}.` });
+      loadData();
+    } else {
+      setPriceMsg({ ok: false, text: res.error || "Gagal menyimpan tarif per jam" });
+    }
+  };
+
+  const handleSaveAllHourlyPrices = async () => {
+    const dirty = bikes.filter(isPriceDirty);
+    if (dirty.length === 0) return;
+    setSavingAllPrices(true);
+    setPriceMsg(null);
+    let failed = 0;
+    for (const bike of dirty) {
+      const res = await adminUpdateBike(bike.id, {
+        ...bike,
+        price_per_hour: priceDraft[bike.id] ?? 0,
+      });
+      if (!res.success) failed++;
+    }
+    setSavingAllPrices(false);
+    setPriceMsg(
+      failed === 0
+        ? { ok: true, text: `${dirty.length} tarif per jam berhasil diperbarui.` }
+        : { ok: false, text: `${failed} dari ${dirty.length} tarif gagal disimpan.` }
+    );
+    loadData();
+  };
+
+  if (!isAdmin) {
     return (
       <div className="min-h-screen bg-base flex items-center justify-center">
         <div className="animate-pulse text-ink-muted text-sm">Memeriksa autentikasi...</div>
@@ -223,8 +447,8 @@ export default function AdminPage() {
             >
               <ArrowLeft className="w-4 h-4" />
             </Link>
-            <div className="flex items-baseline space-x-2">
-              <span className="font-serif text-xl font-bold text-ink">ms<span className="text-rust">.</span>rent</span>
+            <div className="flex items-center gap-3">
+              <Logo size={36} />
               <span className="text-xs text-ink-muted font-medium">/ Panel Manajemen Garasi</span>
             </div>
           </div>
@@ -253,65 +477,201 @@ export default function AdminPage() {
 
       {/* Main Admin Dashboard */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1">
-        {/* Metric Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="p-5 rounded-xl bg-white border border-sand-200 shadow-warm-sm">
-            <span className="text-xs text-ink-muted font-medium block">Total Armada Unit</span>
-            <div className="text-2xl font-serif font-bold text-ink mt-1.5">{stats?.total_bikes ?? 0}</div>
-            <span className="text-xs text-moss mt-1 block font-medium">{stats?.available_bikes ?? 0} Unit Siap Jalan</span>
+        {/* Page Greeting */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-6 animate-fade-up">
+          <div>
+            <span className="eyebrow-line text-xs font-semibold text-rust tracking-[0.14em] uppercase">
+              Dashboard Garasi
+            </span>
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-ink mt-1.5">
+              Halo, {user?.name || "Admin"}
+            </h1>
+            <p className="text-xs text-ink-muted mt-1">
+              {todayLabel} · Ringkasan operasional ms.Rent
+            </p>
           </div>
-
-          <div className="p-5 rounded-xl bg-white border border-sand-200 shadow-warm-sm">
-            <span className="text-xs text-ink-muted font-medium block">Sedang Disewa (Aktif)</span>
-            <div className="text-2xl font-serif font-bold text-rust mt-1.5">{stats?.active_bookings ?? 0}</div>
-            <span className="text-xs text-ink-muted mt-1 block">{stats?.pending_bookings ?? 0} menunggu konfirmasi</span>
-          </div>
-
-          <div className="p-5 rounded-xl bg-white border border-sand-200 shadow-warm-sm">
-            <span className="text-xs text-ink-muted font-medium block">Total Reservasi Masuk</span>
-            <div className="text-2xl font-serif font-bold text-ink mt-1.5">{stats?.total_bookings ?? 0}</div>
-            <span className="text-xs text-ink-muted mt-1 block">Sepanjang waktu</span>
-          </div>
-
-          <div className="p-5 rounded-xl bg-white border border-sand-200 shadow-warm-sm">
-            <span className="text-xs text-ink-muted font-medium block">Total Penerimaan</span>
-            <div className="text-2xl font-serif font-bold text-moss mt-1.5">
-              {formatRupiah(stats?.total_revenue ?? 0)}
-            </div>
-            <span className="text-xs text-moss mt-1 block font-medium">Pembayaran terverifikasi</span>
-          </div>
+          <Link
+            href="/#armada"
+            className="self-start sm:self-auto text-xs font-semibold px-4 py-2.5 rounded-lg border border-sand-300 bg-white hover:bg-sand-50 hover:border-sand-400 text-ink transition shadow-warm-sm"
+          >
+            Lihat Katalog Publik →
+          </Link>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex items-center space-x-6 border-b border-sand-200 mb-6">
+        {/* Metric Cards (klik untuk melompat ke data terkait) */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {[
+            {
+              icon: BikeIcon,
+              label: "Total Armada Unit",
+              value: String(stats?.total_bikes ?? 0),
+              sub: `${stats?.available_bikes ?? 0} Unit Siap Jalan`,
+              accent: "bg-moss/10 text-moss",
+              subClass: "text-moss",
+              border: "border-t-moss/60",
+              onClick: goToBikes,
+            },
+            {
+              icon: Activity,
+              label: "Sedang Disewa (Aktif)",
+              value: String(stats?.active_bookings ?? 0),
+              sub: `${stats?.pending_bookings ?? 0} menunggu konfirmasi`,
+              accent: "bg-rust/10 text-rust",
+              subClass: "text-ink-muted",
+              border: "border-t-rust/60",
+              onClick: () => goToBookings("active"),
+            },
+            {
+              icon: CalendarCheck,
+              label: "Total Reservasi Masuk",
+              value: String(stats?.total_bookings ?? 0),
+              sub: `+${newThisWeek} reservasi 7 hari terakhir`,
+              accent: "bg-ink/10 text-ink",
+              subClass: "text-ink-muted",
+              border: "border-t-ink/50",
+              onClick: () => goToBookings("all"),
+            },
+            {
+              icon: Wallet,
+              label: "Total Penerimaan",
+              value: formatRupiah(stats?.total_revenue ?? 0),
+              sub: "Pembayaran terverifikasi",
+              accent: "bg-moss/10 text-moss",
+              subClass: "text-moss",
+              border: "border-t-moss",
+              onClick: () => goToBookings("all"),
+            },
+          ].map((k) => {
+            const Icon = k.icon;
+            return (
+              <button
+                key={k.label}
+                onClick={k.onClick}
+                className="group text-left p-5 rounded-2xl bg-white border border-sand-200 border-t-2 shadow-warm-sm hover:shadow-warm-md hover:-translate-y-0.5 transition-all cursor-pointer"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-xs text-ink-muted font-medium">{k.label}</span>
+                  <span
+                    className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition group-hover:scale-110 ${k.accent}`}
+                  >
+                    <Icon className="w-4 h-4" strokeWidth={1.75} />
+                  </span>
+                </div>
+                <div className="text-2xl font-serif font-bold text-ink mt-1.5">{k.value}</div>
+                <span className={`text-xs mt-1 block font-medium ${k.subClass}`}>{k.sub}</span>
+                <span className="text-[10px] text-ink-faint mt-2 block opacity-0 group-hover:opacity-100 transition">
+                  Klik untuk lihat detail →
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Analytics Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+          <div className="lg:col-span-2">
+            <BookingTrendChart bookings={bookings} />
+          </div>
+          <StatusDonut bookings={bookings} />
+          <div className="lg:col-span-2">
+            <BrandRevenueBars bookings={bookings} />
+          </div>
+          <FleetUtilization stats={stats} />
+        </div>
+
+        {/* Tab Navigation (segmented control) */}
+        <div id="tab-section" className="scroll-mt-24">
+        <div className="inline-flex p-1 rounded-xl bg-sand-100 border border-sand-200 mb-6">
           <button
             onClick={() => setActiveTab("bookings")}
-            className={`pb-3 text-xs font-semibold border-b-2 transition ${
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
               activeTab === "bookings"
-                ? "border-rust text-rust"
-                : "border-transparent text-ink-muted hover:text-ink"
+                ? "bg-white text-ink shadow-warm-sm"
+                : "text-ink-muted hover:text-ink"
             }`}
           >
             Manajemen Reservasi ({bookings.length})
           </button>
           <button
             onClick={() => setActiveTab("bikes")}
-            className={`pb-3 text-xs font-semibold border-b-2 transition ${
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
               activeTab === "bikes"
-                ? "border-rust text-rust"
-                : "border-transparent text-ink-muted hover:text-ink"
+                ? "bg-white text-ink shadow-warm-sm"
+                : "text-ink-muted hover:text-ink"
             }`}
           >
             Daftar Armada Motor ({bikes.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("pricing")}
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition ${
+              activeTab === "pricing"
+                ? "bg-white text-ink shadow-warm-sm"
+                : "text-ink-muted hover:text-ink"
+            }`}
+          >
+            Tarif Per Jam ({bikes.length})
           </button>
         </div>
 
         {/* Tab 1: Bookings Management */}
         {activeTab === "bookings" && (
           <div className="space-y-4">
+            {/* Toolbar: search + status chips */}
+            <div className="flex flex-col md:flex-row md:items-center gap-3">
+              <div className="relative w-full md:w-72">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-faint pointer-events-none" />
+                <input
+                  type="text"
+                  value={bookingQuery}
+                  onChange={(e) => setBookingQuery(e.target.value)}
+                  placeholder="Cari nama, kode, atau no. HP..."
+                  className="w-full text-xs pl-9 pr-3 py-2.5 rounded-lg border border-sand-200 bg-sand-50 text-ink placeholder-ink-faint focus:outline-none focus:border-rust focus:bg-white focus:ring-4 focus:ring-rust/10 transition"
+                />
+              </div>
+              <div className="flex flex-wrap gap-2 md:ml-auto">
+                {STATUS_FILTERS.map((f) => (
+                  <button
+                    key={f.value}
+                    onClick={() => setStatusFilter(f.value)}
+                    className={`text-xs font-semibold px-3.5 py-1.5 rounded-full border transition-all ${
+                      statusFilter === f.value
+                        ? "bg-ink text-base border-ink shadow-warm-sm"
+                        : "bg-sand-50 text-ink-muted border-sand-200 hover:border-sand-300 hover:text-ink"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <p className="text-xs text-ink-muted">
+              Menampilkan <strong className="text-ink">{filteredBookings.length}</strong> dari{" "}
+              {bookings.length} reservasi
+              {statusFilter !== "all" && (
+                <button
+                  onClick={resetBookingFilter}
+                  className="ml-2 text-rust hover:text-rust-hover font-semibold underline underline-offset-2"
+                >
+                  Reset filter
+                </button>
+              )}
+            </p>
+
             {bookings.length === 0 ? (
               <div className="p-12 text-center rounded-xl bg-white border border-sand-200 shadow-warm-sm text-ink-muted">
                 <p>Belum ada data pesanan sewa motor.</p>
+              </div>
+            ) : filteredBookings.length === 0 ? (
+              <div className="p-12 text-center rounded-xl bg-white border border-sand-200 shadow-warm-sm">
+                <p className="text-ink-muted text-sm">Tidak ada reservasi yang cocok dengan filter.</p>
+                <button
+                  onClick={resetBookingFilter}
+                  className="mt-4 px-4 py-2 rounded-lg bg-rust hover:bg-rust-hover text-white text-xs font-medium transition shadow-warm-sm"
+                >
+                  Reset Filter
+                </button>
               </div>
             ) : (
               <div className="overflow-x-auto rounded-xl border border-sand-200 bg-white shadow-warm-sm">
@@ -328,7 +688,7 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-sand-200/70 text-ink">
-                    {bookings.map((b) => (
+                    {filteredBookings.map((b) => (
                       <tr key={b.id} className="hover:bg-sand-50/70 transition">
                         <td className="p-4">
                           <span className="font-semibold text-ink tracking-wider">{b.booking_code}</span>
@@ -346,13 +706,20 @@ export default function AdminPage() {
                           <div className="text-[11px] text-ink-muted">{b.bike?.plate_number}</div>
                         </td>
                         <td className="p-4">
-                          <div className="font-medium text-ink">{b.start_date} s/d {b.end_date}</div>
-                          <div className="text-[11px] text-ink-muted">{b.duration_days} Hari Sewa</div>
+                          <div className="font-medium text-ink">
+                            {b.start_date}{b.start_time ? ` ${b.start_time}` : ""} s / d {b.end_time && b.end_time !== "24:00" ? `${b.end_date} ${b.end_time}` : b.end_date}
+                          </div>
+                          <div className="text-[11px] text-ink-muted">{durationLabel(b)}</div>
+                          {(b.pending_extend_hours ?? 0) > 0 && (
+                            <div className="text-[10px] font-semibold text-amber-700 bg-amber-100 border border-amber-200 inline-block whitespace-nowrap px-1.5 py-0.5 rounded mt-1">
+                              Extend +{b.pending_extend_hours} jam menunggu
+                            </div>
+                          )}
                         </td>
                         <td className="p-4">
                           <div className="font-serif font-bold text-rust">{formatRupiah(b.total_price)}</div>
                           <span
-                            className={`inline-block px-2 py-0.5 rounded text-[10px] uppercase font-semibold mt-1 ${
+                            className={`inline-block whitespace-nowrap px-2 py-0.5 rounded text-[10px] uppercase font-semibold mt-1 ${
                               b.payment_status === "paid"
                                 ? "bg-moss/10 text-moss border border-moss/20"
                                 : "bg-rust/10 text-rust border border-rust/20"
@@ -363,7 +730,7 @@ export default function AdminPage() {
                         </td>
                         <td className="p-4">
                           <span
-                            className={`px-2.5 py-1 rounded-full text-[11px] font-medium ${
+                            className={`inline-block whitespace-nowrap px-2.5 py-1 rounded-full text-[11px] font-medium ${
                               b.booking_status === "confirmed"
                                 ? "bg-moss/10 text-moss border border-moss/20"
                                 : b.booking_status === "active"
@@ -411,6 +778,50 @@ export default function AdminPage() {
                                 >
                                   Selesai
                                 </button>
+                              )}
+                              {(b.booking_status === "confirmed" || b.booking_status === "active") &&
+                                (extendWindowOk(b) ? (
+                                  <button
+                                    onClick={() => openExtendForm(b)}
+                                    className="px-2.5 py-1 rounded-lg bg-white hover:bg-sand-50 border border-sand-300 text-ink font-medium text-xs"
+                                    title="Perpanjang jam sewa (extend)"
+                                  >
+                                    <Clock className="w-3 h-3 inline -mt-0.5 mr-1" />
+                                    Extend
+                                  </button>
+                                ) : (
+                                  <button
+                                    disabled
+                                    className="px-2.5 py-1 rounded-lg bg-sand-50 border border-sand-200 text-ink-faint font-medium text-xs opacity-60 cursor-not-allowed"
+                                    title="Perpanjangan hanya bisa dilakukan minimal 30 menit sebelum masa sewa habis"
+                                  >
+                                    <Clock className="w-3 h-3 inline -mt-0.5 mr-1" />
+                                    Extend
+                                  </button>
+                                ))}
+                              {(b.pending_extend_hours ?? 0) > 0 && (
+                                <>
+                                  <button
+                                    onClick={() => handleExtendDecision(b.id!, true)}
+                                    disabled={!extendWindowOk(b)}
+                                    className="px-2.5 py-1 rounded-lg bg-moss hover:opacity-90 text-white font-medium text-xs shadow-warm-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                                    title={
+                                      extendWindowOk(b)
+                                        ? "Setujui permintaan perpanjaman pelanggan"
+                                        : "Jendela perpanjaman sudah tertutup (kurang dari 30 menit sebelum masa sewa habis)"
+                                    }
+                                  >
+                                    <Check className="w-3 h-3 inline -mt-0.5 mr-1" />
+                                    Setujui
+                                  </button>
+                                  <button
+                                    onClick={() => handleExtendDecision(b.id!, false)}
+                                    className="px-2.5 py-1 rounded-lg bg-white hover:bg-sand-50 border border-sand-300 text-ink font-medium text-xs"
+                                    title="Tolak permintaan perpanjaman"
+                                  >
+                                    Tolak
+                                  </button>
+                                </>
                               )}
                               <a
                                 href={`https://wa.me/${b.customer_phone.replace(/^0/, "62")}?text=Halo%20${encodeURIComponent(b.customer_name)},%20mengenai%20booking%20motor%20${encodeURIComponent(b.booking_code || "")}%20di%20ms.Rent...`}
@@ -463,9 +874,12 @@ export default function AdminPage() {
                     <div className="flex-1 min-w-0">
                       <h4 className="font-serif font-bold text-ink text-sm leading-snug">{bike.name}</h4>
                       <p className="font-serif text-sm text-rust font-bold mt-0.5">{formatRupiah(bike.price_per_day)} <span className="font-sans text-xs text-ink-muted font-normal">/ hari</span></p>
+                      <p className="text-[11px] text-ink-muted mt-0.5">
+                        {formatRupiah(bike.price_per_hour ?? 0)} <span className="font-normal">/ jam</span>
+                      </p>
                       <p className="text-[11px] text-ink-muted mt-1">Plat: {bike.plate_number}</p>
                       <span
-                        className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-medium mt-1 ${
+                        className={`inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-[10px] font-medium mt-1 ${
                           bike.status === "available"
                             ? "bg-moss/10 text-moss border border-moss/20"
                             : bike.status === "rented"
@@ -502,13 +916,141 @@ export default function AdminPage() {
             </div>
           </div>
         )}
+
+        {/* Tab 3: Pengaturan Tarif Per Jam */}
+        {activeTab === "pricing" && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-white border border-sand-200 shadow-warm-sm text-xs text-ink-muted leading-relaxed">
+              Atur <strong className="text-ink">tarif sewa per jam</strong> untuk tiap unit. Sewa per jam hanya
+              tersedia bila tarif di atas 0 (durasi min. 2 jam, maks. 23 jam) dan tidak memengaruhi harga harian.
+              Isi <strong className="text-ink">0</strong> untuk menonaktifkan sewa per jam pada unit tersebut.
+              Harga berlaku untuk reservasi baru maupun perpanjangan (extend).
+            </div>
+
+            {priceMsg && (
+              <div
+                className={`p-3 rounded-lg text-xs font-medium border ${
+                  priceMsg.ok
+                    ? "bg-moss/10 border-moss/30 text-moss"
+                    : "bg-rust/10 border-rust/30 text-rust"
+                }`}
+              >
+                {priceMsg.text}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={handleSaveAllHourlyPrices}
+                disabled={savingAllPrices || dirtyPriceCount === 0}
+                className="flex items-center space-x-1.5 px-4 py-2 rounded-lg bg-rust hover:bg-rust-hover text-white text-xs font-medium transition shadow-warm-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Save className="w-3.5 h-3.5" />
+                <span>
+                  {savingAllPrices
+                    ? "Menyimpan..."
+                    : `Terapkan Semua Perubahan${dirtyPriceCount ? ` (${dirtyPriceCount})` : ""}`}
+                </span>
+              </button>
+              {dirtyPriceCount > 0 && (
+                <span className="text-[11px] text-ink-muted">
+                  {dirtyPriceCount} perubahan belum disimpan
+                </span>
+              )}
+            </div>
+
+            <div className="overflow-x-auto rounded-xl border border-sand-200 bg-white shadow-warm-sm">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-sand-50 text-ink-muted border-b border-sand-200 text-[11px] font-semibold">
+                  <tr>
+                    <th className="p-4">Unit Motor</th>
+                    <th className="p-4">Harga / Hari</th>
+                    <th className="p-4">Tarif / Jam (Rp)</th>
+                    <th className="p-4">Saran</th>
+                    <th className="p-4">Status Sewa Per Jam</th>
+                    <th className="p-4 text-right">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-sand-200/70 text-ink">
+                  {bikes.map((bike) => {
+                    const draft = priceDraft[bike.id] ?? bike.price_per_hour ?? 0;
+                    const dirty = draft !== (bike.price_per_hour ?? 0);
+                    const suggested = suggestedHourly(bike);
+                    const active = draft > 0;
+                    return (
+                      <tr key={bike.id} className={`transition ${dirty ? "bg-rust/5" : "hover:bg-sand-50/70"}`}>
+                        <td className="p-4">
+                          <div className="font-semibold text-ink">{bike.name}</div>
+                          <div className="text-[10px] text-ink-faint mt-0.5">
+                            {bike.brand} · {bike.plate_number}
+                          </div>
+                        </td>
+                        <td className="p-4 text-ink-muted whitespace-nowrap">
+                          {formatRupiah(bike.price_per_day)}
+                        </td>
+                        <td className="p-4">
+                          <input
+                            type="number"
+                            min={0}
+                            step={500}
+                            value={draft}
+                            onChange={(e) =>
+                              setPriceDraft({ ...priceDraft, [bike.id]: Number(e.target.value) })
+                            }
+                            className="w-32 px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust focus:bg-white focus:ring-4 focus:ring-rust/10 transition"
+                          />
+                        </td>
+                        <td className="p-4">
+                          <button
+                            onClick={() => setPriceDraft({ ...priceDraft, [bike.id]: suggested })}
+                            className="text-rust hover:text-rust-hover font-semibold underline underline-offset-2 whitespace-nowrap"
+                            title="Pakai harga harian dibagi 24 (dibulatkan ke atas)"
+                          >
+                            {formatRupiah(suggested)}
+                          </button>
+                        </td>
+                        <td className="p-4">
+                          <span
+                            className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap border ${
+                              active
+                                ? "bg-moss/10 text-moss border-moss/20"
+                                : "bg-sand-200 text-ink-muted border-sand-300"
+                            }`}
+                          >
+                            {active ? `Aktif · ${formatRupiah(draft)}/jam` : "Nonaktif"}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right">
+                          <button
+                            onClick={() => handleSaveHourlyPrice(bike)}
+                            disabled={!dirty || savingPriceId !== null}
+                            className="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg bg-rust hover:bg-rust-hover text-white text-[11px] font-medium transition shadow-warm-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <Save className="w-3 h-3" />
+                            <span>{savingPriceId === bike.id ? "Menyimpan" : "Simpan"}</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <p className="text-[11px] text-ink-faint">
+              Baris berwarna oranye menandai perubahan yang belum disimpan. Klik nilai pada kolom Saran
+              untuk mengisi tarif otomatis (harga harian dibagi 24, dibulatkan ke atas).
+            </p>
+          </div>
+        )}
+        </div>
       </main>
 
       {/* Bike Create/Edit Modal */}
       {showBikeForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-sm overflow-y-auto">
-          <div className="relative w-full max-w-lg bg-white border border-sand-200 rounded-2xl shadow-warm-lg overflow-hidden my-8">
-            <div className="flex items-center justify-between p-5 border-b border-sand-200 bg-sand-50/50">
+        <div className="fixed inset-0 z-50 flex p-4 bg-ink/40 backdrop-blur-sm overflow-y-auto">
+          <div className="relative w-full max-w-lg m-auto flex flex-col max-h-[calc(100vh-2rem)] bg-white border border-sand-200 rounded-2xl shadow-warm-lg overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-sand-200 bg-sand-50/50 shrink-0">
               <h2 className="font-serif text-xl font-bold text-ink">
                 {editingBike ? "Edit Unit Motor" : "Tambah Motor Baru"}
               </h2>
@@ -558,6 +1100,11 @@ export default function AdminPage() {
                   <input type="number" value={bikeForm.price_per_day} onChange={(e) => setBikeForm({ ...bikeForm, price_per_day: Number(e.target.value) })} className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition" />
                 </div>
                 <div>
+                  <label className="block text-xs font-medium text-ink mb-1">Harga / Jam (Rp)</label>
+                  <input type="number" min={0} value={bikeForm.price_per_hour} onChange={(e) => setBikeForm({ ...bikeForm, price_per_hour: Number(e.target.value) })} className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition" />
+                  <p className="text-[10px] text-ink-faint mt-1">0 = fitur sewa per jam nonaktif</p>
+                </div>
+                <div>
                   <label className="block text-xs font-medium text-ink mb-1">Nomor Plat *</label>
                   <input type="text" value={bikeForm.plate_number} onChange={(e) => setBikeForm({ ...bikeForm, plate_number: e.target.value })} placeholder="B 1234 XYZ" className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition" required />
                 </div>
@@ -591,6 +1138,107 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Extend (Perpanjaman Jam Sewa) Modal */}
+      {extendTarget && (
+        <div className="fixed inset-0 z-50 flex p-4 bg-ink/40 backdrop-blur-sm overflow-y-auto">
+          <div className="relative w-full max-w-md m-auto flex flex-col max-h-[calc(100vh-2rem)] bg-white border border-sand-200 rounded-2xl shadow-warm-lg overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-sand-200 bg-sand-50/50 shrink-0">
+              <div>
+                <span className="text-xs font-semibold text-rust tracking-wide">Perpanjaman Sewa</span>
+                <h2 className="font-serif text-xl font-bold text-ink">{extendTarget.booking_code}</h2>
+              </div>
+              <button onClick={() => setExtendTarget(null)} className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-sand-200 transition">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="p-3.5 rounded-xl bg-sand-50 border border-sand-200 text-xs space-y-1.5">
+                <div className="flex justify-between gap-3">
+                  <span className="text-ink-muted">Penyewa</span>
+                  <span className="font-semibold text-ink">{extendTarget.customer_name}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-ink-muted">Unit</span>
+                  <span className="font-semibold text-ink">{extendTarget.bike?.name || `Motor ID: ${extendTarget.bike_id}`}</span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-ink-muted">Jadwal saat ini</span>
+                  <span className="font-semibold text-ink">
+                    {extendTarget.start_date}{extendTarget.start_time ? ` ${extendTarget.start_time}` : ""} s/d {extendTarget.end_time && extendTarget.end_time !== "24:00" ? `${extendTarget.end_date} ${extendTarget.end_time}` : extendTarget.end_date}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-ink-muted">Tarif per jam</span>
+                  <span className="font-semibold text-rust">{formatRupiah(extendTarget.bike?.price_per_hour ?? 0)}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 rounded-xl bg-white border border-sand-200 text-xs">
+                <span className="text-ink-muted">Jam tambahan (1-23)</span>
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setExtendHours(Math.max(1, extendHours - 1))}
+                    className="w-7 h-7 rounded-lg bg-sand-50 border border-sand-200 text-ink font-semibold hover:bg-sand-100 text-xs transition"
+                  >
+                    -
+                  </button>
+                  <span className="text-xs font-semibold w-5 text-center text-ink">{extendHours}</span>
+                  <button
+                    type="button"
+                    onClick={() => setExtendHours(Math.min(23, extendHours + 1))}
+                    className="w-7 h-7 rounded-lg bg-sand-50 border border-sand-200 text-ink font-semibold hover:bg-sand-100 text-xs transition"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-ink-muted">Biaya tambahan</span>
+                <span className="font-semibold text-rust">
+                  {formatRupiah((extendTarget.bike?.price_per_hour ?? 0) * extendHours)}
+                </span>
+              </div>
+              <p className="text-[11px] text-ink-muted leading-relaxed">
+                Total reservasi akan ditambah biaya di atas. Bila sebelumnya sudah lunas, status pembayaran
+                kembali menjadi <strong>Belum Lunas</strong> untuk sisa tagihan.
+              </p>
+
+              {extendError && (
+                <div className="p-2.5 rounded-lg bg-rust/10 border border-rust/30 text-rust text-xs font-medium">{extendError}</div>
+              )}
+
+              {extendTarget && !extendWindowOk(extendTarget) && (
+                <div className="p-2.5 rounded-lg bg-sand-100 border border-sand-200 text-ink-muted text-[11px] leading-relaxed">
+                  Perpanjangan hanya bisa dilakukan minimal 30 menit sebelum masa sewa habis —
+                  jendela perpanjaman untuk reservasi ini sudah tertutup.
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setExtendTarget(null)}
+                  className="py-2.5 rounded-xl bg-sand-100 hover:bg-sand-200 text-ink-light font-medium text-xs transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAdminExtend}
+                  disabled={extendLoading || (extendTarget ? !extendWindowOk(extendTarget) : false)}
+                  className="py-2.5 rounded-xl bg-rust hover:bg-rust-hover text-white font-medium text-xs transition disabled:opacity-50 shadow-warm-sm"
+                >
+                  {extendLoading ? "Menerapkan..." : "Terapkan Extend"}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

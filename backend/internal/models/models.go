@@ -13,6 +13,7 @@ type Bike struct {
 	Year         int       `json:"year"`
 	Transmission string    `gorm:"size:30" json:"transmission"`
 	PricePerDay  float64   `gorm:"not null" json:"price_per_day"`
+	PricePerHour float64   `gorm:"default:0" json:"price_per_hour"`
 	PlateNumber  string    `gorm:"size:30" json:"plate_number"`
 	Status       string    `gorm:"size:30;default:'available'" json:"status"` // available, rented, maintenance
 	ImageURL     string    `gorm:"size:255" json:"image_url"`
@@ -51,6 +52,14 @@ type Booking struct {
 	StartDate       string    `gorm:"size:30;not null" json:"start_date"` // YYYY-MM-DD
 	EndDate         string    `gorm:"size:30;not null" json:"end_date"`   // YYYY-MM-DD
 	DurationDays    int       `gorm:"not null" json:"duration_days"`
+	RentalType      string    `gorm:"size:10;default:'daily'" json:"rental_type"` // daily, hourly
+	StartTime       string    `gorm:"size:5" json:"start_time"`                  // HH:MM (jam mulai harian & per jam)
+	EndTime         string    `gorm:"size:5" json:"end_time"`                    // HH:MM, 00:00-24:00
+	DurationHours   int       `gorm:"default:0" json:"duration_hours"`           // durasi total sewa per jam
+	ExtendedHours   int       `gorm:"default:0" json:"extended_hours"`           // akumulasi jam hasil extend
+	PendingExtendHours int    `gorm:"default:0" json:"pending_extend_hours"`
+	PendingExtendCost  float64 `gorm:"default:0" json:"pending_extend_cost"`
+	PendingExtendBy    string  `gorm:"size:20" json:"pending_extend_by"` // customer, admin
 	PickupLocation  string    `gorm:"size:100" json:"pickup_location"`
 	ReturnLocation  string    `gorm:"size:100" json:"return_location"`
 	DeliveryAddress string    `gorm:"size:255" json:"delivery_address"`
