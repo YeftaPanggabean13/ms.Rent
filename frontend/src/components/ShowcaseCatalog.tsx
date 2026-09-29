@@ -6,10 +6,9 @@ import {
   X, 
   CheckCircle2, 
   Clock, 
-  Fuel, 
-  Gauge, 
-  ShieldCheck, 
-  ArrowRight
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 interface ShowcaseCatalogProps {
@@ -85,7 +84,7 @@ export default function ShowcaseCatalog({
 }: ShowcaseCatalogProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [isSwitching, setIsSwitching] = useState(false);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   const activeShowcase = SHOWCASE_ITEMS[activeIndex];
 
@@ -97,12 +96,24 @@ export default function ShowcaseCatalog({
   const pricePerHour = dbBike?.price_per_hour || (activeIndex === 0 ? 5000 : activeIndex === 1 ? 5500 : 6500);
 
   const handleTabChange = (index: number) => {
-    if (index === activeIndex) return;
-    setIsSwitching(true);
     setActiveIndex(index);
-    setTimeout(() => {
-      setIsSwitching(false);
-    }, 200);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStartX(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX === null) return;
+    const touchEndX = e.changedTouches[0].clientX;
+    const diff = touchStartX - touchEndX;
+
+    if (diff > 45 && activeIndex < SHOWCASE_ITEMS.length - 1) {
+      setActiveIndex((prev) => prev + 1);
+    } else if (diff < -45 && activeIndex > 0) {
+      setActiveIndex((prev) => prev - 1);
+    }
+    setTouchStartX(null);
   };
 
   const formatRupiah = (val: number) => {
@@ -120,96 +131,139 @@ export default function ShowcaseCatalog({
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-6 sm:pb-8 relative z-10">
         
-        {/* TOP NAVIGATION TABS */}
-        <div className="flex flex-wrap items-center gap-6 sm:gap-10 border-b border-line pb-3">
-          {SHOWCASE_ITEMS.map((item, idx) => {
-            const isActive = idx === activeIndex;
-            return (
+        {/* TOP NAVIGATION TABS + CONTROLS */}
+        <div className="flex items-center justify-between border-b border-line pb-3">
+          <div className="flex flex-wrap items-center gap-6 sm:gap-10">
+            {SHOWCASE_ITEMS.map((item, idx) => {
+              const isActive = idx === activeIndex;
+              return (
+                <button
+                  key={item.tabLabel}
+                  type="button"
+                  onClick={() => handleTabChange(idx)}
+                  className={`relative pb-2 text-base sm:text-xl md:text-2xl tracking-tight transition-colors duration-200 cursor-pointer font-bold ${
+                    isActive
+                      ? "text-ink border-b-2 border-accent"
+                      : "text-ink-muted border-b-2 border-transparent hover:text-ink"
+                  }`}
+                  aria-pressed={isActive}
+                >
+                  {item.tabLabel}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Navigation Controls (Page indicator + Chevron Buttons) */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <span className="text-xs text-ink-muted font-semibold tracking-wider">
+              0{activeIndex + 1} / 0{SHOWCASE_ITEMS.length}
+            </span>
+            <div className="flex items-center gap-1">
               <button
-                key={item.tabLabel}
                 type="button"
-                onClick={() => handleTabChange(idx)}
-                className={`relative pb-2 text-base sm:text-xl md:text-2xl tracking-tight transition-colors duration-150 cursor-pointer font-bold ${
-                  isActive
-                    ? "text-ink border-b-2 border-accent"
-                    : "text-ink-muted border-b-2 border-transparent hover:text-ink"
-                }`}
-                aria-pressed={isActive}
+                onClick={() => setActiveIndex((prev) => Math.max(0, prev - 1))}
+                disabled={activeIndex === 0}
+                aria-label="Unit sebelumnya"
+                className="p-1.5 sm:p-2 rounded-[4px] border border-line bg-surface hover:bg-bg disabled:opacity-25 disabled:cursor-not-allowed transition text-ink cursor-pointer"
               >
-                {item.tabLabel}
+                <ChevronLeft className="w-4 h-4" />
               </button>
-            );
-          })}
+              <button
+                type="button"
+                onClick={() => setActiveIndex((prev) => Math.min(SHOWCASE_ITEMS.length - 1, prev + 1))}
+                disabled={activeIndex === SHOWCASE_ITEMS.length - 1}
+                aria-label="Unit berikutnya"
+                className="p-1.5 sm:p-2 rounded-[4px] border border-line bg-surface hover:bg-bg disabled:opacity-25 disabled:cursor-not-allowed transition text-ink cursor-pointer"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* MAIN STAGE: Concept matching user reference image */}
-        <div className="relative mt-8 sm:mt-10 min-h-[340px] sm:min-h-[380px] lg:min-h-[420px] flex items-center">
-          
-          {/* GIANT WATERMARK TEXT (Behind bike, spanning lower canvas) */}
+        {/* MAIN STAGE: Horizontal Sliding Track */}
+        <div 
+          className="relative mt-8 sm:mt-10 overflow-hidden w-full select-none"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
           <div 
-            className="absolute inset-x-0 bottom-4 sm:bottom-6 pointer-events-none select-none z-0 flex items-center justify-start overflow-hidden pl-2 sm:pl-4"
-            aria-hidden="true"
+            className="flex w-full transition-transform duration-600 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform"
+            style={{ transform: `translateX(-${activeIndex * 100}%)` }}
           >
-            <span 
-              className={`font-black tracking-tight text-watermark whitespace-nowrap transition-all duration-300 transform select-none ${
-                isSwitching ? "opacity-0 scale-98 translate-y-1" : "opacity-100 scale-100 translate-y-0"
-              } text-[68px] sm:text-[110px] md:text-[150px] lg:text-[185px] xl:text-[210px]`}
-              style={{
-                letterSpacing: "-0.03em",
-                lineHeight: "0.85",
-              }}
-            >
-              {activeShowcase.watermarkText}
-            </span>
-          </div>
+            {SHOWCASE_ITEMS.map((item, idx) => {
+              const isActive = idx === activeIndex;
 
-          {/* LEFT CONTENT: Only short tagline and "Lihat Detail" button */}
-          <div className="relative z-10 max-w-[260px] sm:max-w-[320px] md:max-w-sm space-y-6 self-start pt-2 sm:pt-4">
-            {/* Tagline / Penjelasan Singkat */}
-            <p 
-              className={`text-xs sm:text-sm text-ink-muted leading-relaxed transition-opacity duration-200 ${
-                isSwitching ? "opacity-0" : "opacity-100"
-              }`}
-            >
-              {activeShowcase.tagline}
-            </p>
+              return (
+                <div 
+                  key={item.id}
+                  className="w-full shrink-0 relative min-h-[340px] sm:min-h-[380px] lg:min-h-[420px] flex items-center"
+                >
+                  {/* GIANT WATERMARK TEXT (Behind bike, spanning lower canvas) */}
+                  <div 
+                    className="absolute inset-x-0 bottom-4 sm:bottom-6 pointer-events-none select-none z-0 flex items-center justify-start overflow-hidden pl-2 sm:pl-4"
+                    aria-hidden="true"
+                  >
+                    <span 
+                      className="font-black tracking-tight text-watermark whitespace-nowrap select-none text-[68px] sm:text-[110px] md:text-[150px] lg:text-[185px] xl:text-[210px]"
+                      style={{
+                        letterSpacing: "-0.03em",
+                        lineHeight: "0.85",
+                      }}
+                    >
+                      {item.watermarkText}
+                    </span>
+                  </div>
 
-            {/* "Lihat Detail" Button */}
-            <div>
-              <button
-                type="button"
-                onClick={() => setIsDetailOpen(true)}
-                className="inline-flex items-center justify-center px-6 py-2.5 bg-accent text-accent-ink hover:opacity-90 font-bold text-xs sm:text-sm tracking-wide rounded-[4px] transition-opacity cursor-pointer shadow-sm"
-              >
-                Lihat Detail
-              </button>
-            </div>
-          </div>
+                  {/* LEFT CONTENT: Only short tagline and "Lihat Detail" button */}
+                  <div className="relative z-10 max-w-[260px] sm:max-w-[320px] md:max-w-sm space-y-6 self-start pt-2 sm:pt-4">
+                    {/* Tagline / Penjelasan Singkat */}
+                    <p className="text-xs sm:text-sm text-ink-muted leading-relaxed">
+                      {item.tagline}
+                    </p>
 
-          {/* FOREGROUND MOTORCYCLE CUTOUT (On top of watermark, positioned to the right) */}
-          <div className="absolute right-0 sm:right-4 md:right-8 lg:right-12 bottom-0 z-10 w-[65%] sm:w-[60%] md:w-[56%] lg:w-[52%] max-w-[580px] pointer-events-none flex justify-end items-end">
-            <div 
-              className={`relative w-full aspect-[4/3] max-h-[300px] sm:max-h-[360px] lg:max-h-[400px] transition-all duration-300 ease-out transform ${
-                isSwitching 
-                  ? "opacity-0 translate-x-3 scale-98" 
-                  : "opacity-100 translate-x-0 scale-100"
-              }`}
-            >
-              {/* Ground Shadow */}
-              <div 
-                className="absolute bottom-[3%] left-[10%] right-[10%] h-[12px] sm:h-[16px] bg-dark/20 blur-[12px] rounded-full"
-                aria-hidden="true"
-              />
+                    {/* "Lihat Detail" Button */}
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveIndex(idx);
+                          setIsDetailOpen(true);
+                        }}
+                        className="inline-flex items-center justify-center px-6 py-2.5 bg-accent text-accent-ink hover:opacity-90 font-bold text-xs sm:text-sm tracking-wide rounded-[4px] transition-opacity cursor-pointer shadow-sm"
+                      >
+                        Lihat Detail
+                      </button>
+                    </div>
+                  </div>
 
-              {/* Motorcycle transparent PNG */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={activeShowcase.pngUrl}
-                alt={activeShowcase.tabLabel}
-                className="w-full h-full object-contain select-none"
-                loading="eager"
-              />
-            </div>
+                  {/* FOREGROUND MOTORCYCLE CUTOUT (On top of watermark, positioned to the right) */}
+                  <div className="absolute right-0 sm:right-4 md:right-8 lg:right-12 bottom-0 z-10 w-[65%] sm:w-[60%] md:w-[56%] lg:w-[52%] max-w-[580px] pointer-events-none flex justify-end items-end">
+                    <div 
+                      className={`relative w-full aspect-[4/3] max-h-[300px] sm:max-h-[360px] lg:max-h-[400px] transition-transform duration-700 ease-out ${
+                        isActive ? "scale-100" : "scale-95"
+                      }`}
+                    >
+                      {/* Ground Shadow */}
+                      <div 
+                        className="absolute bottom-[3%] left-[10%] right-[10%] h-[12px] sm:h-[16px] bg-dark/20 blur-[12px] rounded-full"
+                        aria-hidden="true"
+                      />
+
+                      {/* Motorcycle transparent PNG */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={item.pngUrl}
+                        alt={item.tabLabel}
+                        className="w-full h-full object-contain select-none"
+                        loading="eager"
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
