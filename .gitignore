@@ -12,6 +12,7 @@ desktop.ini
 *.swp
 *.swo
 *~
+.edgedata/
 
 # --- Environment Variables (Kredensial Sensitif) ---
 # Abaikan file .env rahasia, kecualikan template .env.example

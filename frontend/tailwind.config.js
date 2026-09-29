@@ -8,36 +8,28 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        serif: ['"DM Serif Display"', 'Georgia', 'serif'],
         sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif'],
       },
       colors: {
-        base: '#FBF9F6',
+        bg: 'var(--bg)',
+        surface: 'var(--surface)',
         ink: {
-          DEFAULT: '#1B2430',
-          light: '#2D3A4B',
-          muted: '#5A687A',
-          faint: '#8D99A8',
+          DEFAULT: 'var(--ink)',
+          muted: 'var(--ink-muted)',
         },
+        line: 'var(--line)',
+        accent: {
+          DEFAULT: 'var(--accent)',
+          ink: 'var(--accent-ink)',
+        },
+        dark: 'var(--dark)',
+        watermark: 'var(--watermark)',
         rust: {
-          DEFAULT: '#C1622A',
-          hover: '#A95120',
-          dark: '#8C3F18',
-          light: '#F8ECE5',
-          faint: '#FDF7F3',
-        },
-        moss: {
-          DEFAULT: '#2F4A3D',
-          hover: '#243A30',
-          light: '#EAF0EC',
-          faint: '#F3F6F4',
-        },
-        sand: {
-          50: '#FBF9F6',
-          100: '#F5F0EA',
-          200: '#E8E2D8',
-          300: '#D6CFC4',
-          400: '#BCB3A5',
+          DEFAULT: 'var(--accent)',
+          hover: 'var(--accent)',
+          dark: 'var(--accent)',
+          light: 'var(--bg)',
+          faint: 'var(--bg)',
         },
       },
       boxShadow: {
@@ -45,7 +37,7 @@ module.exports = {
         'warm-md': '0 6px 20px -2px rgba(27, 36, 48, 0.06), 0 4px 12px -1px rgba(27, 36, 48, 0.03)',
         'warm-lg': '0 14px 36px -4px rgba(27, 36, 48, 0.08), 0 4px 12px -2px rgba(27, 36, 48, 0.04)',
         'warm-xl': '0 24px 60px -12px rgba(27, 36, 48, 0.14), 0 8px 20px -6px rgba(27, 36, 48, 0.06)',
-        'glow-rust': '0 10px 30px -8px rgba(193, 98, 42, 0.35)',
+
       },
       keyframes: {
         'fade-up': {

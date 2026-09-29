@@ -262,7 +262,7 @@ export default function BookingModal({ bike, onClose, onSuccess, onTrackBooking 
             <span className="text-xs font-semibold text-rust tracking-wide">
               Reservasi Unit Motor
             </span>
-            <h2 className="font-serif text-2xl font-bold text-ink mt-0.5">{bike.name}</h2>
+            <h2 className="text-2xl font-bold text-ink mt-0.5">{bike.name}</h2>
           </div>
           <button
             onClick={onClose}
@@ -279,7 +279,7 @@ export default function BookingModal({ bike, onClose, onSuccess, onTrackBooking 
               <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-moss/10 text-moss border border-moss/20">
                 Pemesanan Tercatat
               </span>
-              <h3 className="font-serif text-2xl font-bold text-ink">Reservasi Siap Dikonfirmasi</h3>
+              <h3 className="text-2xl font-bold text-ink">Reservasi Siap Dikonfirmasi</h3>
               <p className="text-xs sm:text-sm text-ink-muted max-w-sm mx-auto leading-relaxed">
                 Simpan Kode Reservasi di bawah ini untuk pelacakan status unit dan verifikasi garasi kami.
               </p>
@@ -344,7 +344,7 @@ export default function BookingModal({ bike, onClose, onSuccess, onTrackBooking 
               />
               <div className="flex justify-between items-baseline pt-3 border-t border-sand-200">
                 <span className="text-ink-light font-semibold text-xs">Total Pembayaran:</span>
-                <span className="font-serif text-lg font-bold text-rust">{formatRupiah(grandTotal)}</span>
+                <span className="text-lg font-bold text-rust">{formatRupiah(grandTotal)}</span>
               </div>
             </div>
 
@@ -758,7 +758,7 @@ export default function BookingModal({ bike, onClose, onSuccess, onTrackBooking 
               )}
               <div className="p-3 rounded-lg bg-rust/5 border border-rust/20 flex justify-between items-baseline gap-3">
                 <span className="font-semibold text-ink text-xs">Estimasi Total Pembayaran</span>
-                <span className="font-serif font-bold text-lg text-rust">{formatRupiah(grandTotal)}</span>
+                <span className="font-bold text-lg text-rust">{formatRupiah(grandTotal)}</span>
               </div>
               <p className="flex items-center gap-1.5 text-[11px] text-moss">
                 <Check className="w-3.5 h-3.5 shrink-0" />

@@ -108,7 +108,7 @@ export default function ServiceCenterPage() {
             <span className="eyebrow-line inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-rust">
               <Wrench className="w-3.5 h-3.5" /> Layanan Service
             </span>
-            <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl text-ink mt-3 leading-tight">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl text-ink mt-3 leading-tight">
               Peta Service Center Resmi Indonesia
             </h1>
             <p className="text-ink-muted mt-3 text-sm sm:text-[16px] leading-relaxed">

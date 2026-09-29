@@ -108,7 +108,7 @@ export default function BikeHoursModal({ bike, isOpen, onClose }: BikeHoursModal
             <span className="text-xs font-semibold text-rust tracking-wide flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5" /> Informasi Ketersediaan per Jam
             </span>
-            <h2 className="font-serif text-xl font-bold text-ink mt-0.5 truncate">{bike.name}</h2>
+            <h2 className="text-xl font-bold text-ink mt-0.5 truncate">{bike.name}</h2>
             <p className="text-[11px] text-ink-faint mt-0.5">Plat: {bike.plate_number}</p>
           </div>
           <button

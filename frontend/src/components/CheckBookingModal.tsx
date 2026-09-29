@@ -189,7 +189,7 @@ export default function CheckBookingModal({ isOpen, onClose, initialCode = "" }:
       <div className="relative w-full max-w-lg m-auto flex flex-col max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] bg-white border border-sand-200 rounded-2xl shadow-warm-xl overflow-hidden animate-scale-in">
         <div className="flex items-center justify-between p-6 border-b border-sand-200 bg-sand-50/50 shrink-0">
           <div>
-            <h3 className="font-serif text-xl font-bold text-ink">Lacak Reservasi</h3>
+            <h3 className="text-xl font-bold text-ink">Lacak Reservasi</h3>
             <p className="text-xs text-ink-muted mt-0.5">Masukkan kode booking untuk melihat status armada Anda</p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg text-ink-muted hover:text-ink hover:bg-sand-200 transition">
@@ -316,7 +316,7 @@ export default function CheckBookingModal({ isOpen, onClose, initialCode = "" }:
                 </div>
                 <div className="p-3 rounded-lg bg-rust/5 border border-rust/20 flex justify-between items-baseline gap-3">
                   <span className="text-xs font-semibold text-ink-light">Total Pembayaran</span>
-                  <span className="font-serif font-bold text-base text-rust">{formatRupiah(booking.total_price)}</span>
+                  <span className="font-bold text-base text-rust">{formatRupiah(booking.total_price)}</span>
                 </div>
 
                 {/* Perpanjaman sewa (extend jam) */}
