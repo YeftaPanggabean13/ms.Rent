@@ -15,6 +15,8 @@ interface ShowcaseCatalogProps {
   bikes: Bike[];
   onSelectBikeForBooking: (bike: Bike) => void;
   onOpenHoursModal?: (bike: Bike) => void;
+  externalActiveIndex?: number;
+  onActiveIndexChange?: (index: number) => void;
 }
 
 interface ShowcaseItem {
@@ -49,9 +51,9 @@ const SHOWCASE_ITEMS: ShowcaseItem[] = [
   },
   {
     id: 10,
-    tabLabel: "Scoppy 2023",
-    watermarkText: "Scoppy 2023",
-    tagline: "Desain retro modern yang stylish dan nyaman untuk perjalanan harian.",
+    tabLabel: "Scoopy 2023",
+    watermarkText: "Scoopy 2023",
+    tagline: "Desain retro modern yang stylish dan nyaman untuk perjalanan harian santai.",
     pngUrl: "/bikes/scoopy-2023.png",
     specs: {
       engine: "110 cc eSP Modern",
@@ -81,10 +83,19 @@ export default function ShowcaseCatalog({
   bikes,
   onSelectBikeForBooking,
   onOpenHoursModal,
+  externalActiveIndex,
+  onActiveIndexChange,
 }: ShowcaseCatalogProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [internalActiveIndex, setInternalActiveIndex] = useState(0);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
+
+  const activeIndex = externalActiveIndex !== undefined ? externalActiveIndex : internalActiveIndex;
+  const setActiveIndex = (setter: number | ((prev: number) => number)) => {
+    const nextVal = typeof setter === "function" ? setter(activeIndex) : setter;
+    setInternalActiveIndex(nextVal);
+    onActiveIndexChange?.(nextVal);
+  };
 
   const activeShowcase = SHOWCASE_ITEMS[activeIndex];
 
@@ -317,7 +328,7 @@ export default function ShowcaseCatalog({
                       {activeShowcase.tabLabel}
                     </h3>
                     <p className="text-xs text-ink-muted mt-1">
-                      Kategori: {activeIndex === 1 ? "Classic & Lifestyle" : activeIndex === 2 ? "Sport Matic" : "Matic Compact"} · Tahun {activeShowcase.specs.year}
+                      Kategori: {activeIndex === 1 ? "Retro Matic" : activeIndex === 2 ? "Sport Matic" : "Matic Compact"} · Tahun {activeShowcase.specs.year}
                     </p>
                   </div>
 
@@ -419,7 +430,7 @@ export default function ShowcaseCatalog({
                     id: activeShowcase.id,
                     name: activeShowcase.tabLabel,
                     brand: activeIndex === 2 ? "Yamaha" : "Honda",
-                    category: activeIndex === 1 ? "Classic & Lifestyle" : activeIndex === 2 ? "Sport Matic" : "Matic Compact",
+                    category: activeIndex === 1 ? "Retro Matic" : activeIndex === 2 ? "Sport Matic" : "Matic Compact",
                     engine_cc: activeIndex === 2 ? 155 : 110,
                     year: parseInt(activeShowcase.specs.year),
                     transmission: "Automatic",

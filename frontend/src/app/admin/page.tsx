@@ -1067,18 +1067,18 @@ export default function AdminPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-ink mb-1">Nama Motor *</label>
-                  <input type="text" value={bikeForm.name} onChange={(e) => setBikeForm({ ...bikeForm, name: e.target.value })} placeholder="Honda PCX 160 ABS" className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition" required />
+                  <input type="text" value={bikeForm.name} onChange={(e) => setBikeForm({ ...bikeForm, name: e.target.value })} placeholder="Beat 2022 / Scoopy 2023 / Aerox 150s" className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition" required />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-ink mb-1">Brand</label>
                   <select value={bikeForm.brand} onChange={(e) => setBikeForm({ ...bikeForm, brand: e.target.value })} className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition">
-                    <option>Honda</option><option>Yamaha</option><option>Vespa</option><option>Kawasaki</option><option>Suzuki</option>
+                    <option>Honda</option><option>Yamaha</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-ink mb-1">Kategori</label>
                   <select value={bikeForm.category} onChange={(e) => setBikeForm({ ...bikeForm, category: e.target.value })} className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition">
-                    <option>Maxi Scooter</option><option>Matic Compact</option><option>Classic &amp; Lifestyle</option><option>Sport Matic</option><option>Retro Matic</option><option>Big Maxi</option><option>Dual Sport / Trail</option>
+                    <option>Matic Compact</option><option>Retro Matic</option><option>Sport Matic</option>
                   </select>
                 </div>
                 <div>

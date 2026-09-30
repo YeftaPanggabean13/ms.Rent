@@ -36,9 +36,9 @@ func main() {
 			Description:  "Explore the city sustainably with fun and seamless ease! Lincah, super hemat bahan bakar, dan partner setia mobilitas urban perkotaan.",
 		},
 		{
-			Name:         "Scoppy 2023",
+			Name:         "Scoopy 2023",
 			Brand:        "Honda",
-			Category:     "Classic & Lifestyle",
+			Category:     "Retro Matic",
 			EngineCC:     110,
 			Year:         2023,
 			Transmission: "Automatic",

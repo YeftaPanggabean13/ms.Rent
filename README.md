@@ -6,7 +6,7 @@ Platform reservasi dan manajemen rental motor modern yang dibangun menggunakan *
 
 ## 🚀 Fitur Utama
 
-- **Katalog Motor Interaktif**: Filter berdasarkan kategori (*Maxi Scooter, Matic Compact, Classic, Sport/Trail*) dan brand (*Honda, Yamaha, Vespa, Kawasaki*).
+- **Katalog Motor Interaktif**: Showcase unit motor matic (*Beat 2022, Scoopy 2023, Aerox 150s*) dengan filter kategori praktis (*Matic Compact, Retro Matic, Sport Matic*).
 - **Sistem Reservasi & Kalkulasi Otomatis**: Pemilihan rentang tanggal sewa, penghitungan durasi hari, opsi antar-jemput ke stasiun/hotel, dan helm tambahan secara real-time.
 - **Pencegahan Overlap Booking**: Validasi tanggal otomatis untuk mencegah bentrok jadwal pada motor yang sama.
 - **Konfirmasi WhatsApp Cepat**: Integrasi link WhatsApp langsung dengan format pesan otomatis berisi kode booking & rincian sewa.

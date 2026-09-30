@@ -55,9 +55,9 @@ export default function BikeDetailPage() {
       }
       setBike(b);
 
-      // Load related bikes (same category, exclude current)
-      const allBikes = await getBikes({ category: b.category });
-      setRelatedBikes(allBikes.filter((rb) => rb.id !== b.id).slice(0, 3));
+      // Load other bikes in garage (exclude current)
+      const allBikes = await getBikes();
+      setRelatedBikes(allBikes.filter((rb) => rb.id !== b.id));
 
       setLoading(false);
     }
@@ -433,10 +433,10 @@ export default function BikeDetailPage() {
           <div className="flex items-end justify-between mb-6">
             <div>
               <span className="eyebrow-line text-xs font-semibold text-rust tracking-[0.14em] uppercase">
-                Motor Serupa
+                Armada Garasi
               </span>
               <h2 className="text-2xl font-bold text-ink mt-2">
-                Pilihan Lain di Kategori {bike.category}
+                Pilihan Unit Lainnya di Garasi
               </h2>
             </div>
             <Link
