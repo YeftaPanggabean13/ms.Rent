@@ -437,9 +437,10 @@ func (h *BookingHandler) UpdateBookingStatus(c *gin.Context) {
 	}
 
 	// Update status motor jika status booking berubah
-	if req.BookingStatus == "active" {
+	switch req.BookingStatus {
+	case "active":
 		database.DB.Model(&models.Bike{}).Where("id = ?", booking.BikeID).Update("status", "rented")
-	} else if req.BookingStatus == "completed" || req.BookingStatus == "cancelled" {
+	case "completed", "cancelled":
 		database.DB.Model(&models.Bike{}).Where("id = ?", booking.BikeID).Update("status", "available")
 	}
 
