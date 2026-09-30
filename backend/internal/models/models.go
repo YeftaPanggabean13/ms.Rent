@@ -69,8 +69,11 @@ type Booking struct {
 	TotalPrice      float64   `gorm:"not null" json:"total_price"`
 	PaymentStatus   string    `gorm:"size:30;default:'unpaid'" json:"payment_status"` // unpaid, paid, refunded
 	BookingStatus   string    `gorm:"size:30;default:'pending'" json:"booking_status"` // pending, confirmed, active, completed, cancelled
-	PaymentMethod   string    `gorm:"size:50;default:'Transfer Bank'" json:"payment_method"`
-	Notes           string    `gorm:"type:text" json:"notes"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	PaymentMethod      string     `gorm:"size:50;default:'Transfer Bank'" json:"payment_method"`
+	PaymentToken       string     `gorm:"size:255" json:"payment_token,omitempty"`
+	PaymentRedirectURL string     `gorm:"size:255" json:"payment_redirect_url,omitempty"`
+	PaidAt             *time.Time `json:"paid_at,omitempty"`
+	Notes              string     `gorm:"type:text" json:"notes"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 }

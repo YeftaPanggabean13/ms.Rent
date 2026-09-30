@@ -300,7 +300,7 @@ export default function Navbar({ onOpenCheckBooking }: NavbarProps) {
               scrolled ? "opacity-0 xl:opacity-100" : "opacity-100"
             }`}
           >
-            Garasi Motor Urban Jabodetabek
+            Garasi Motor Urban Bandung
           </span>
         </Link>
 

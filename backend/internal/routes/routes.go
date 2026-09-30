@@ -35,6 +35,7 @@ func SetupRouter() *gin.Engine {
 	bookingHandler := handlers.NewBookingHandler()
 	dashboardHandler := handlers.NewDashboardHandler()
 	serviceCenterHandler := handlers.NewServiceCenterHandler()
+	paymentHandler := handlers.NewPaymentHandler()
 
 	// API Group
 	api := r.Group("/api")
@@ -82,6 +83,14 @@ func SetupRouter() *gin.Engine {
 			bookings.POST("", bookingHandler.CreateBooking)
 			bookings.GET("/code/:code", bookingHandler.GetBookingByCode)
 			bookings.POST("/extend", bookingHandler.RequestExtend)
+		}
+
+		// ====== Payment routes (Midtrans Snap & Webhook) ======
+		payment := api.Group("/payment")
+		{
+			payment.POST("/token", paymentHandler.CreateSnapToken)
+			payment.POST("/notification", paymentHandler.HandleNotification)
+			payment.POST("/mock-pay", paymentHandler.MockPay)
 		}
 
 		// ====== Admin-protected routes ======
