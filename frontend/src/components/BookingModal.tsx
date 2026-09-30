@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useId } from "react";
 import { Bike, Booking } from "@/types";
-import { createBooking } from "@/lib/api";
-import { X, Copy, Check, Bike as BikeIcon, CalendarDays, Truck, Wallet, ArrowRight } from "lucide-react";
+import { createBooking, getPaymentToken, mockPay } from "@/lib/api";
+import { loadSnapScript } from "@/lib/snap";
+import { X, Copy, Check, Bike as BikeIcon, CalendarDays, Truck, Wallet, ArrowRight, CreditCard, Loader2 } from "lucide-react";
 import BookingStatusTimeline from "@/components/BookingStatusTimeline";
 import TermsModal from "@/components/TermsModal";
 
@@ -78,6 +79,8 @@ export default function BookingModal({ bike, onClose, onSuccess, onTrackBooking 
   const [copiedCode, setCopiedCode] = useState(false);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [termsOpen, setTermsOpen] = useState(false);
+  const [payLoading, setPayLoading] = useState(false);
+  const [payError, setPayError] = useState("");
 
   // Waktu sekarang (diperbarui tiap 30 detik) untuk menolak jadwal yang sudah berlalu
   const [now, setNow] = useState(() => new Date());
@@ -252,6 +255,58 @@ export default function BookingModal({ bike, onClose, onSuccess, onTrackBooking 
     return `https://wa.me/6282151728477?text=${msg}`;
   };
 
+  const handlePay = async () => {
+    if (!createdBooking?.booking_code) return;
+    setPayLoading(true);
+    setPayError("");
+
+    const tokenRes = await getPaymentToken(createdBooking.booking_code);
+    if (!tokenRes.success || !tokenRes.token) {
+      setPayLoading(false);
+      setPayError(tokenRes.error || "Gagal membuat sesi pembayaran");
+      return;
+    }
+
+    // Jika token yang kembali adalah mock (backend belum direstart / kunci belum terbaca)
+    if (tokenRes.is_mock) {
+      setPayLoading(false);
+      setPayError("Kunci Midtrans belum dimuat oleh backend. Silakan restart terminal backend (Ctrl+C lalu jalankan ulang go run cmd/api/main.go) agar .env terbaru aktif.");
+      return;
+    }
+
+    // Muat skrip Snap Midtrans
+    await loadSnapScript(tokenRes.client_key, tokenRes.is_production);
+
+    if (window.snap) {
+      setPayLoading(false);
+      window.snap.pay(tokenRes.token, {
+        onSuccess: (result: unknown) => {
+          console.log("Midtrans payment success:", result);
+          setCreatedBooking((prev) =>
+            prev ? { ...prev, payment_status: "paid", booking_status: "confirmed" } : null
+          );
+        },
+        onPending: (result: unknown) => {
+          console.log("Midtrans payment pending:", result);
+        },
+        onError: (err: unknown) => {
+          console.error("Midtrans payment error:", err);
+          setPayError("Pembayaran gagal atau dibatalkan");
+        },
+        onClose: () => {
+          console.log("Customer closed the payment popup");
+        },
+      });
+    } else {
+      setPayLoading(false);
+      if (tokenRes.redirect_url) {
+        window.open(tokenRes.redirect_url, "_blank");
+      } else {
+        setPayError("Gagal membuka jendela pembayaran");
+      }
+    }
+  };
+
   return (
     <>
     <div className="fixed inset-0 z-50 flex p-4 sm:p-6 bg-ink/50 backdrop-blur-sm overflow-y-auto">
@@ -350,14 +405,42 @@ export default function BookingModal({ bike, onClose, onSuccess, onTrackBooking 
 
             {/* Action Buttons */}
             <div className="space-y-2.5 pt-1 max-w-md mx-auto">
-              <a
-                href={getWaLink()}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full block py-3 rounded-xl bg-rust hover:bg-rust-hover text-white font-medium text-xs sm:text-sm transition shadow-warm-sm text-center"
-              >
-                Konfirmasi via WhatsApp Sekarang
-              </a>
+              {createdBooking.payment_status === "paid" ? (
+                <div className="p-3.5 rounded-xl bg-moss/10 border border-moss/30 flex items-center justify-center gap-2 text-moss font-semibold text-xs sm:text-sm">
+                  <Check className="w-4 h-4" /> Pembayaran Berhasil (Lunas)
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={handlePay}
+                    disabled={payLoading}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-rust hover:bg-rust-hover text-white font-medium text-xs sm:text-sm transition shadow-warm-sm disabled:opacity-50"
+                  >
+                    {payLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <CreditCard className="w-4 h-4" />
+                    )}
+                    {payLoading ? "Menyiapkan Pembayaran..." : "Bayar Sekarang (Online / QRIS / VA)"}
+                  </button>
+
+                  {payError && (
+                    <div className="p-2.5 rounded-lg bg-rust/10 border border-rust/30 text-rust text-[11px] font-medium text-center">
+                      {payError}
+                    </div>
+                  )}
+
+                  <a
+                    href={getWaLink()}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full block py-2.5 rounded-xl bg-white hover:bg-sand-50 border border-sand-300 text-ink font-medium text-xs transition text-center"
+                  >
+                    Atau Konfirmasi Manual via WhatsApp
+                  </a>
+                </>
+              )}
+
               <div className={onTrackBooking ? "grid grid-cols-2 gap-2.5" : "space-y-2.5"}>
                 {onTrackBooking && (
                   <button

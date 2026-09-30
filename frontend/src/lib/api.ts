@@ -423,6 +423,65 @@ export async function requestExtend(
   }
 }
 
+// ====================== PAYMENT API (Midtrans) ======================
+
+export interface PaymentTokenResponse {
+  success: boolean;
+  token?: string;
+  redirect_url?: string;
+  client_key?: string;
+  is_production?: boolean;
+  is_mock?: boolean;
+  error?: string;
+}
+
+export async function getPaymentToken(bookingCode: string): Promise<PaymentTokenResponse> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/payment/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ booking_code: bookingCode }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      return { success: false, error: json.error || "Gagal membuat sesi pembayaran" };
+    }
+    return {
+      success: true,
+      token: json.token,
+      redirect_url: json.redirect_url,
+      client_key: json.client_key,
+      is_production: json.is_production,
+      is_mock: json.is_mock,
+    };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Gagal terhubung ke server pembayaran",
+    };
+  }
+}
+
+export async function mockPay(bookingCode: string): Promise<{ success: boolean; data?: Booking; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/payment/mock-pay`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ booking_code: bookingCode }),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      return { success: false, error: json.error || "Gagal melakukan simulasi pembayaran" };
+    }
+    return { success: true, data: json.data };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Gagal terhubung ke server pembayaran",
+    };
+  }
+}
+
 // ====================== ADMIN API (protected) ======================
 
 export async function getBookings(): Promise<Booking[]> {

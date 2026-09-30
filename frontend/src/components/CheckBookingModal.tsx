@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Booking } from "@/types";
-import { getBookingByCode, requestExtend } from "@/lib/api";
-import { X, Search, Copy, Check, User, CalendarDays, MapPin, Bike as BikeIcon, Wallet, Inbox, Clock } from "lucide-react";
+import { getBookingByCode, requestExtend, getPaymentToken, mockPay } from "@/lib/api";
+import { loadSnapScript } from "@/lib/snap";
+import { X, Search, Copy, Check, User, CalendarDays, MapPin, Bike as BikeIcon, Wallet, Inbox, Clock, CreditCard, Loader2 } from "lucide-react";
 import BookingStatusTimeline from "@/components/BookingStatusTimeline";
 
 interface CheckBookingModalProps {
@@ -38,6 +39,8 @@ export default function CheckBookingModal({ isOpen, onClose, initialCode = "" }:
   const [extendLoading, setExtendLoading] = useState(false);
   const [extendError, setExtendError] = useState("");
   const [extendSuccess, setExtendSuccess] = useState("");
+  const [payLoading, setPayLoading] = useState(false);
+  const [payError, setPayError] = useState("");
 
   // Waktu sekarang (diperbarui tiap 30 detik) untuk mengecek jendela perpanjaman
   const [nowTs, setNowTs] = useState(() => Date.now());
@@ -167,6 +170,57 @@ export default function CheckBookingModal({ isOpen, onClose, initialCode = "" }:
       setExtendPhone("");
     } else {
       setExtendError(res.error || "Gagal mengajukan perpanjaman. Coba lagi.");
+    }
+  };
+
+  const handlePay = async () => {
+    if (!booking?.booking_code) return;
+    setPayLoading(true);
+    setPayError("");
+
+    const tokenRes = await getPaymentToken(booking.booking_code);
+    if (!tokenRes.success || !tokenRes.token) {
+      setPayLoading(false);
+      setPayError(tokenRes.error || "Gagal membuat sesi pembayaran");
+      return;
+    }
+
+    // Jika token yang kembali adalah mock (backend belum direstart / kunci belum terbaca)
+    if (tokenRes.is_mock) {
+      setPayLoading(false);
+      setPayError("Kunci Midtrans belum dimuat oleh backend. Silakan restart terminal backend (Ctrl+C lalu jalankan ulang go run cmd/api/main.go) agar .env terbaru aktif.");
+      return;
+    }
+
+    await loadSnapScript(tokenRes.client_key, tokenRes.is_production);
+
+    if (window.snap) {
+      setPayLoading(false);
+      window.snap.pay(tokenRes.token, {
+        onSuccess: (result: unknown) => {
+          console.log("Midtrans payment success:", result);
+          if (booking.booking_code) {
+            void searchCode(booking.booking_code);
+          }
+        },
+        onPending: (result: unknown) => {
+          console.log("Midtrans payment pending:", result);
+        },
+        onError: (err: unknown) => {
+          console.error("Midtrans payment error:", err);
+          setPayError("Pembayaran gagal atau dibatalkan");
+        },
+        onClose: () => {
+          console.log("Customer closed the payment popup");
+        },
+      });
+    } else {
+      setPayLoading(false);
+      if (tokenRes.redirect_url) {
+        window.open(tokenRes.redirect_url, "_blank");
+      } else {
+        setPayError("Gagal membuka jendela pembayaran");
+      }
     }
   };
 
@@ -318,6 +372,29 @@ export default function CheckBookingModal({ isOpen, onClose, initialCode = "" }:
                   <span className="text-xs font-semibold text-ink-light">Total Pembayaran</span>
                   <span className="font-bold text-base text-rust">{formatRupiah(booking.total_price)}</span>
                 </div>
+
+                {/* Tombol Bayar jika belum lunas */}
+                {booking.payment_status !== "paid" && booking.booking_status !== "cancelled" && (
+                  <div className="space-y-2">
+                    <button
+                      onClick={handlePay}
+                      disabled={payLoading}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-rust hover:bg-rust-hover text-white font-medium text-xs transition shadow-warm-sm disabled:opacity-50 active:scale-95"
+                    >
+                      {payLoading ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <CreditCard className="w-3.5 h-3.5" />
+                      )}
+                      {payLoading ? "Menyiapkan Pembayaran..." : "Bayar Sekarang (Online / QRIS / VA)"}
+                    </button>
+                    {payError && (
+                      <div className="p-2 rounded-lg bg-rust/10 border border-rust/30 text-rust text-[11px] font-medium text-center">
+                        {payError}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Perpanjaman sewa (extend jam) */}
                 {extendSuccess && !hasPendingExtend && (

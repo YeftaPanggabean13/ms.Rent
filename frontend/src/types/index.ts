@@ -47,6 +47,9 @@ export interface Booking {
   payment_status?: 'unpaid' | 'paid' | 'refunded';
   booking_status?: 'pending' | 'confirmed' | 'active' | 'completed' | 'cancelled';
   payment_method?: string;
+  payment_token?: string;
+  payment_redirect_url?: string;
+  paid_at?: string;
   notes?: string;
   created_at?: string;
 }
