@@ -314,9 +314,21 @@ export default function BookingModal({ bike, onClose, onSuccess, onTrackBooking 
         {/* Header Modal */}
         <div className="flex items-center justify-between p-6 border-b border-sand-200 bg-sand-50/50 shrink-0">
           <div>
-            <span className="text-xs font-semibold text-rust tracking-wide">
-              Reservasi Unit Motor
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-rust tracking-wide">
+                Reservasi Unit Motor
+              </span>
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                (bike.available_stock ?? bike.stock ?? 0) > 0 && bike.status !== "maintenance"
+                  ? "bg-moss/10 text-moss border border-moss/20"
+                  : "bg-rust/10 text-rust border border-rust/20"
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  (bike.available_stock ?? bike.stock ?? 0) > 0 && bike.status !== "maintenance" ? "bg-moss" : "bg-rust"
+                }`} />
+                Stok: {bike.stock ?? 0} Unit {bike.available_stock !== undefined ? `(${bike.available_stock} Siap)` : ""}
+              </span>
+            </div>
             <h2 className="text-2xl font-bold text-ink mt-0.5">{bike.name}</h2>
           </div>
           <button

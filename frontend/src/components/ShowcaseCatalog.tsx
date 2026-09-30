@@ -2,13 +2,16 @@
 
 import { useState } from "react";
 import { Bike } from "@/types";
+import { initialMockBikes } from "@/lib/api";
 import { 
   X, 
   CheckCircle2, 
   Clock, 
   ArrowRight,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck,
+  Check
 } from "lucide-react";
 
 interface ShowcaseCatalogProps {
@@ -18,66 +21,6 @@ interface ShowcaseCatalogProps {
   externalActiveIndex?: number;
   onActiveIndexChange?: (index: number) => void;
 }
-
-interface ShowcaseItem {
-  id: number;
-  tabLabel: string;
-  watermarkText: string;
-  tagline: string;
-  pngUrl: string;
-  specs: {
-    engine: string;
-    consumption: string;
-    transmission: string;
-    year: string;
-    features: string[];
-  };
-}
-
-const SHOWCASE_ITEMS: ShowcaseItem[] = [
-  {
-    id: 9,
-    tabLabel: "Beat 2022",
-    watermarkText: "Beat 2022",
-    tagline: "Motor matic lincah dan hemat bahan bakar untuk kebutuhan mobilitas perkotaan.",
-    pngUrl: "/bikes/beat-2022.png",
-    specs: {
-      engine: "110 cc eSP",
-      consumption: "60.6 km/L (Super Irit)",
-      transmission: "Otomatis (V-Matic)",
-      year: "2022",
-      features: ["2 Helm SNI", "Jas Hujan", "Phone Holder", "Combi Brake System (CBS)", "Idling Stop System"],
-    },
-  },
-  {
-    id: 10,
-    tabLabel: "Scoopy 2023",
-    watermarkText: "Scoopy 2023",
-    tagline: "Desain retro modern yang stylish dan nyaman untuk perjalanan harian santai.",
-    pngUrl: "/bikes/scoopy-2023.png",
-    specs: {
-      engine: "110 cc eSP Modern",
-      consumption: "59.0 km/L",
-      transmission: "Otomatis (V-Matic)",
-      year: "2023",
-      features: ["2 Helm Bogo Retro", "Jas Hujan", "Smart Key System", "USB Charger In-Console", "Bagasi 15.4L"],
-    },
-  },
-  {
-    id: 11,
-    tabLabel: "Aerox 150s",
-    watermarkText: "Aerox 150s",
-    tagline: "Performa bertenaga dengan akselerasi responsif dan posisi berkendara sporty.",
-    pngUrl: "/bikes/aerox-150s.png",
-    specs: {
-      engine: "155 cc Blue Core VVA",
-      consumption: "45.0 km/L",
-      transmission: "Otomatis (Sport Matic)",
-      year: "2023",
-      features: ["2 Helm SNI Sport", "Jas Hujan", "Phone Holder", "Rem ABS", "Sub-tank Rear Suspension"],
-    },
-  },
-];
 
 export default function ShowcaseCatalog({
   bikes,
@@ -90,21 +33,21 @@ export default function ShowcaseCatalog({
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
-  const activeIndex = externalActiveIndex !== undefined ? externalActiveIndex : internalActiveIndex;
+  // Gunakan data dinamis dari backend, fallback ke initialMockBikes hanya jika data belum ter-load
+  const displayBikes = bikes && bikes.length > 0 ? bikes : initialMockBikes;
+
+  const rawActiveIndex = externalActiveIndex !== undefined ? externalActiveIndex : internalActiveIndex;
+  // Pastikan activeIndex selalu berada dalam rentang valid displayBikes
+  const activeIndex = Math.min(Math.max(0, rawActiveIndex), Math.max(0, displayBikes.length - 1));
+
   const setActiveIndex = (setter: number | ((prev: number) => number)) => {
     const nextVal = typeof setter === "function" ? setter(activeIndex) : setter;
-    setInternalActiveIndex(nextVal);
-    onActiveIndexChange?.(nextVal);
+    const clamped = Math.min(Math.max(0, nextVal), Math.max(0, displayBikes.length - 1));
+    setInternalActiveIndex(clamped);
+    onActiveIndexChange?.(clamped);
   };
 
-  const activeShowcase = SHOWCASE_ITEMS[activeIndex];
-
-  const dbBike = bikes.find(
-    (b) => b.id === activeShowcase.id || b.name.toLowerCase().includes(activeShowcase.tabLabel.toLowerCase().split(" ")[0])
-  );
-
-  const pricePerDay = dbBike?.price_per_day || (activeIndex === 0 ? 85000 : activeIndex === 1 ? 95000 : 125000);
-  const pricePerHour = dbBike?.price_per_hour || (activeIndex === 0 ? 5000 : activeIndex === 1 ? 5500 : 6500);
+  const activeBike = displayBikes[activeIndex] || displayBikes[0];
 
   const handleTabChange = (index: number) => {
     setActiveIndex(index);
@@ -119,7 +62,7 @@ export default function ShowcaseCatalog({
     const touchEndX = e.changedTouches[0].clientX;
     const diff = touchStartX - touchEndX;
 
-    if (diff > 45 && activeIndex < SHOWCASE_ITEMS.length - 1) {
+    if (diff > 45 && activeIndex < displayBikes.length - 1) {
       setActiveIndex((prev) => prev + 1);
     } else if (diff < -45 && activeIndex > 0) {
       setActiveIndex((prev) => prev - 1);
@@ -135,6 +78,12 @@ export default function ShowcaseCatalog({
     }).format(val);
   };
 
+  // Helper fitur motor
+  const getFeatureList = (featuresStr?: string) => {
+    if (!featuresStr) return ["2 Helm SNI", "Jas Hujan", "Phone Holder"];
+    return featuresStr.split(",").map((f) => f.trim()).filter(Boolean);
+  };
+
   return (
     <section 
       id="armada" 
@@ -145,11 +94,11 @@ export default function ShowcaseCatalog({
         {/* TOP NAVIGATION TABS + CONTROLS */}
         <div className="flex items-center justify-between border-b border-line pb-3">
           <div className="flex flex-wrap items-center gap-6 sm:gap-10">
-            {SHOWCASE_ITEMS.map((item, idx) => {
+            {displayBikes.map((bike, idx) => {
               const isActive = idx === activeIndex;
               return (
                 <button
-                  key={item.tabLabel}
+                  key={bike.id || idx}
                   type="button"
                   onClick={() => handleTabChange(idx)}
                   className={`relative pb-2 text-base sm:text-xl md:text-2xl tracking-tight transition-colors duration-200 cursor-pointer font-bold ${
@@ -159,7 +108,7 @@ export default function ShowcaseCatalog({
                   }`}
                   aria-pressed={isActive}
                 >
-                  {item.tabLabel}
+                  {bike.name}
                 </button>
               );
             })}
@@ -168,7 +117,7 @@ export default function ShowcaseCatalog({
           {/* Navigation Controls (Page indicator + Chevron Buttons) */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <span className="text-xs text-ink-muted font-semibold tracking-wider">
-              0{activeIndex + 1} / 0{SHOWCASE_ITEMS.length}
+              {String(activeIndex + 1).padStart(2, "0")} / {String(displayBikes.length).padStart(2, "0")}
             </span>
             <div className="flex items-center gap-1">
               <button
@@ -182,8 +131,8 @@ export default function ShowcaseCatalog({
               </button>
               <button
                 type="button"
-                onClick={() => setActiveIndex((prev) => Math.min(SHOWCASE_ITEMS.length - 1, prev + 1))}
-                disabled={activeIndex === SHOWCASE_ITEMS.length - 1}
+                onClick={() => setActiveIndex((prev) => Math.min(displayBikes.length - 1, prev + 1))}
+                disabled={activeIndex === displayBikes.length - 1}
                 aria-label="Unit berikutnya"
                 className="p-1.5 sm:p-2 rounded-[4px] border border-line bg-surface hover:bg-bg disabled:opacity-25 disabled:cursor-not-allowed transition text-ink cursor-pointer"
               >
@@ -193,9 +142,9 @@ export default function ShowcaseCatalog({
           </div>
         </div>
 
-        {/* MAIN STAGE: Horizontal Sliding Track */}
+        {/* MAIN SLIDER AREA (Continuous Canvas) */}
         <div 
-          className="relative mt-8 sm:mt-10 overflow-hidden w-full select-none"
+          className="relative mt-4 sm:mt-6 overflow-hidden touch-pan-y"
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
@@ -203,12 +152,15 @@ export default function ShowcaseCatalog({
             className="flex w-full transition-transform duration-600 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform"
             style={{ transform: `translateX(-${activeIndex * 100}%)` }}
           >
-            {SHOWCASE_ITEMS.map((item, idx) => {
+            {displayBikes.map((bike, idx) => {
               const isActive = idx === activeIndex;
+              const currentStock = bike.stock ?? 0;
+              const currentAvail = bike.available_stock ?? currentStock;
+              const isAvailable = currentAvail > 0 && bike.status !== "maintenance";
 
               return (
                 <div 
-                  key={item.id}
+                  key={bike.id || idx}
                   className="w-full shrink-0 relative min-h-[340px] sm:min-h-[380px] lg:min-h-[420px] flex items-center"
                 >
                   {/* GIANT WATERMARK TEXT (Behind bike, spanning lower canvas) */}
@@ -223,16 +175,30 @@ export default function ShowcaseCatalog({
                         lineHeight: "0.85",
                       }}
                     >
-                      {item.watermarkText}
+                      {bike.name}
                     </span>
                   </div>
 
-                  {/* LEFT CONTENT: Only short tagline and "Lihat Detail" button */}
+                  {/* LEFT CONTENT: Short description, dynamic stock badge, & "Lihat Detail" button */}
                   <div className="relative z-10 max-w-[260px] sm:max-w-[320px] md:max-w-sm space-y-6 self-start pt-2 sm:pt-4">
-                    {/* Tagline / Penjelasan Singkat */}
-                    <p className="text-xs sm:text-sm text-ink-muted leading-relaxed">
-                      {item.tagline}
-                    </p>
+                    {/* Tagline / Dynamic Stock Indicator */}
+                    <div className="space-y-3">
+                      <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition ${
+                        isAvailable
+                          ? "bg-accent/15 text-accent border-accent/25"
+                          : "bg-red-500/10 text-red-600 border-red-500/25"
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${isAvailable ? "bg-accent animate-pulse" : "bg-red-500"}`} />
+                        {isAvailable ? (
+                          <span>Tersedia <strong>{currentAvail}</strong> dari {currentStock} Unit</span>
+                        ) : (
+                          <span>Stok Habis / Dalam Perawatan</span>
+                        )}
+                      </div>
+                      <p className="text-xs sm:text-sm text-ink-muted leading-relaxed line-clamp-3">
+                        {bike.description}
+                      </p>
+                    </div>
 
                     {/* "Lihat Detail" Button */}
                     <div>
@@ -265,8 +231,8 @@ export default function ShowcaseCatalog({
                       {/* Motorcycle transparent PNG */}
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={item.pngUrl}
-                        alt={item.tabLabel}
+                        src={bike.image_url}
+                        alt={bike.name}
                         className="w-full h-full object-contain select-none"
                         loading="eager"
                       />
@@ -280,7 +246,7 @@ export default function ShowcaseCatalog({
       </div>
 
       {/* DETAIL MODAL (Opened from "Lihat Detail") */}
-      {isDetailOpen && (
+      {isDetailOpen && activeBike && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-dark/60 backdrop-blur-sm animate-fade-in"
           role="dialog"
@@ -311,12 +277,12 @@ export default function ShowcaseCatalog({
                 {/* Bike Cutout inside Modal */}
                 <div className="md:col-span-6 bg-bg border border-line rounded-[6px] p-6 relative overflow-hidden flex items-center justify-center">
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
-                    <span className="text-4xl font-black text-watermark">{activeShowcase.watermarkText}</span>
+                    <span className="text-4xl font-black text-watermark">{activeBike.name}</span>
                   </div>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={activeShowcase.pngUrl}
-                    alt={activeShowcase.tabLabel}
+                    src={activeBike.image_url}
+                    alt={activeBike.name}
                     className="relative z-10 w-full max-h-[240px] object-contain"
                   />
                 </div>
@@ -325,10 +291,20 @@ export default function ShowcaseCatalog({
                 <div className="md:col-span-6 space-y-4">
                   <div>
                     <h3 id="modal-title" className="text-2xl font-extrabold text-ink tracking-tight">
-                      {activeShowcase.tabLabel}
+                      {activeBike.name}
                     </h3>
-                    <p className="text-xs text-ink-muted mt-1">
-                      Kategori: {activeIndex === 1 ? "Retro Matic" : activeIndex === 2 ? "Sport Matic" : "Matic Compact"} · Tahun {activeShowcase.specs.year}
+                    <p className="text-xs text-ink-muted mt-1 flex flex-wrap items-center gap-1.5">
+                      <span>{activeBike.category}</span>
+                      <span>·</span>
+                      <span>Tahun {activeBike.year}</span>
+                      <span>·</span>
+                      <span className={`font-bold ${
+                        (activeBike.available_stock ?? activeBike.stock ?? 0) > 0 && activeBike.status !== "maintenance"
+                          ? "text-accent"
+                          : "text-red-500"
+                      }`}>
+                        Stok: {activeBike.stock ?? 0} Unit {activeBike.available_stock !== undefined ? `(${activeBike.available_stock} Siap)` : ""}
+                      </span>
                     </p>
                   </div>
 
@@ -337,46 +313,46 @@ export default function ShowcaseCatalog({
                     <div className="flex items-baseline justify-between">
                       <span className="text-xs text-ink-muted">Tarif Sewa Harian:</span>
                       <span className="text-xl font-extrabold text-accent">
-                        {formatRupiah(pricePerDay)} <span className="text-xs font-normal text-ink-muted">/ 24 jam</span>
+                        {formatRupiah(activeBike.price_per_day)} <span className="text-xs font-normal text-ink-muted">/ 24 jam</span>
                       </span>
                     </div>
-                    {pricePerHour > 0 && (
+                    {activeBike.price_per_hour > 0 && (
                       <div className="flex items-baseline justify-between pt-2 border-t border-line">
                         <span className="text-xs text-ink-muted">Tarif Sewa Jam:</span>
                         <span className="text-sm font-bold text-ink">
-                          {formatRupiah(pricePerHour)} <span className="text-[11px] font-normal text-ink-muted">/ jam</span>
+                          {formatRupiah(activeBike.price_per_hour)} <span className="text-[11px] font-normal text-ink-muted">/ jam</span>
                         </span>
                       </div>
                     )}
                   </div>
 
                   <p className="text-xs sm:text-sm text-ink-muted leading-relaxed">
-                    {activeShowcase.tagline} Unit terawat berkala dengan helm SNI higienis dan siap jalan.
+                    {activeBike.description}
                   </p>
                 </div>
               </div>
 
-              {/* Technical Specs */}
-              <div className="pt-4 border-t border-line">
+              {/* Dynamic Specs Grid */}
+              <div className="pt-2 border-t border-line">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-ink-muted mb-3">
-                  Spesifikasi &amp; Performa Unit
+                  Spesifikasi Kendaraan
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                   <div className="p-3 rounded-[6px] bg-bg border border-line">
                     <span className="text-[10px] text-ink-muted uppercase">Kapasitas Mesin</span>
-                    <p className="font-bold text-ink mt-0.5">{activeShowcase.specs.engine}</p>
+                    <p className="font-bold text-ink mt-0.5">{activeBike.engine_cc} cc</p>
                   </div>
                   <div className="p-3 rounded-[6px] bg-bg border border-line">
-                    <span className="text-[10px] text-ink-muted uppercase">Konsumsi BBM</span>
-                    <p className="font-bold text-ink mt-0.5">{activeShowcase.specs.consumption}</p>
+                    <span className="text-[10px] text-ink-muted uppercase">Brand / Manufaktur</span>
+                    <p className="font-bold text-ink mt-0.5">{activeBike.brand}</p>
                   </div>
                   <div className="p-3 rounded-[6px] bg-bg border border-line">
                     <span className="text-[10px] text-ink-muted uppercase">Transmisi</span>
-                    <p className="font-bold text-ink mt-0.5">{activeShowcase.specs.transmission}</p>
+                    <p className="font-bold text-ink mt-0.5">{activeBike.transmission}</p>
                   </div>
                   <div className="p-3 rounded-[6px] bg-bg border border-line">
-                    <span className="text-[10px] text-ink-muted uppercase">Tahun Perakitan</span>
-                    <p className="font-bold text-ink mt-0.5">{activeShowcase.specs.year}</p>
+                    <span className="text-[10px] text-ink-muted uppercase">Tahun Produksi</span>
+                    <p className="font-bold text-ink mt-0.5">{activeBike.year}</p>
                   </div>
                 </div>
               </div>
@@ -387,8 +363,8 @@ export default function ShowcaseCatalog({
                   Fasilitas Termasuk dalam Sewa
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  {activeShowcase.specs.features.map((feat) => (
-                    <div key={feat} className="flex items-center gap-2 text-ink-muted">
+                  {getFeatureList(activeBike.features).map((feat, i) => (
+                    <div key={i} className="flex items-center gap-2 text-ink-muted">
                       <CheckCircle2 className="w-4 h-4 text-accent shrink-0" />
                       <span>{feat}</span>
                     </div>
@@ -399,7 +375,7 @@ export default function ShowcaseCatalog({
                   </div>
                   <div className="flex items-center gap-2 text-ink-muted">
                     <CheckCircle2 className="w-4 h-4 text-accent shrink-0" />
-                    <span>Antar-Jemput ke Kampus / Stasiun / Kost"</span>
+                    <span>Antar-Jemput ke Stasiun / Hotel / Kost</span>
                   </div>
                 </div>
               </div>
@@ -408,14 +384,14 @@ export default function ShowcaseCatalog({
             {/* Modal Footer */}
             <div className="px-6 py-4 border-t border-line bg-bg flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="flex items-center gap-3 w-full sm:w-auto">
-                {dbBike && onOpenHoursModal && (
+                {onOpenHoursModal && (
                   <button
                     type="button"
                     onClick={() => {
                       setIsDetailOpen(false);
-                      onOpenHoursModal(dbBike);
+                      onOpenHoursModal(activeBike);
                     }}
-                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-[4px] border border-line bg-surface hover:bg-bg text-ink text-xs font-semibold transition"
+                    className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-[4px] border border-line bg-surface hover:bg-bg text-ink text-xs font-semibold transition cursor-pointer"
                   >
                     <Clock className="w-3.5 h-3.5" /> Cek Ketersediaan Jam
                   </button>
@@ -424,29 +400,16 @@ export default function ShowcaseCatalog({
 
               <button
                 type="button"
+                disabled={activeBike.status === "maintenance" || (activeBike.available_stock ?? activeBike.stock ?? 0) <= 0}
                 onClick={() => {
                   setIsDetailOpen(false);
-                  const target = dbBike || ({
-                    id: activeShowcase.id,
-                    name: activeShowcase.tabLabel,
-                    brand: activeIndex === 2 ? "Yamaha" : "Honda",
-                    category: activeIndex === 1 ? "Retro Matic" : activeIndex === 2 ? "Sport Matic" : "Matic Compact",
-                    engine_cc: activeIndex === 2 ? 155 : 110,
-                    year: parseInt(activeShowcase.specs.year),
-                    transmission: "Automatic",
-                    price_per_day: pricePerDay,
-                    price_per_hour: pricePerHour,
-                    plate_number: activeIndex === 0 ? "B 3912 KFX" : activeIndex === 1 ? "B 4712 SCP" : "B 6023 ARX",
-                    status: "available",
-                    image_url: activeShowcase.pngUrl,
-                    features: activeShowcase.specs.features.join(", "),
-                    description: activeShowcase.tagline,
-                  } as Bike);
-                  onSelectBikeForBooking(target);
+                  onSelectBikeForBooking(activeBike);
                 }}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-[4px] bg-accent text-accent-ink hover:opacity-90 text-xs font-bold transition"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-[4px] bg-accent text-accent-ink hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-bold transition cursor-pointer"
               >
-                Pesan Unit Ini Sekarang <ArrowRight className="w-4 h-4" />
+                {activeBike.status === "maintenance" || (activeBike.available_stock ?? activeBike.stock ?? 0) <= 0
+                  ? "Unit Sedang Tidak Tersedia"
+                  : "Pesan Unit Ini Sekarang"} <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -455,4 +418,3 @@ export default function ShowcaseCatalog({
     </section>
   );
 }
-

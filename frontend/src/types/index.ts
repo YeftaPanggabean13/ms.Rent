@@ -9,6 +9,8 @@ export interface Bike {
   price_per_day: number;
   price_per_hour: number;
   plate_number: string;
+  stock: number;
+  available_stock?: number;
   status: 'available' | 'rented' | 'maintenance';
   image_url: string;
   features: string;

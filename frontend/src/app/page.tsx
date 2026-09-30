@@ -33,15 +33,18 @@ export default function Home() {
     loadData();
   }, []);
 
+  const categories = Array.from(new Set(bikes.map((b) => b.category))).filter(Boolean);
+
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const q = searchQuery.toLowerCase().trim();
-    if (q.includes("beat") || selectedCategory === "Matic Compact") {
-      setActiveShowcaseIndex(0);
-    } else if (q.includes("scoop") || selectedCategory === "Retro Matic") {
-      setActiveShowcaseIndex(1);
-    } else if (q.includes("aerox") || selectedCategory === "Sport Matic") {
-      setActiveShowcaseIndex(2);
+    const foundIdx = bikes.findIndex((b) => {
+      const matchQuery = !q || b.name.toLowerCase().includes(q) || b.brand.toLowerCase().includes(q) || b.category.toLowerCase().includes(q);
+      const matchCat = selectedCategory === "Semua" || b.category.toLowerCase() === selectedCategory.toLowerCase();
+      return matchQuery && matchCat;
+    });
+    if (foundIdx !== -1) {
+      setActiveShowcaseIndex(foundIdx);
     }
     const elem = document.getElementById("armada");
     if (elem) elem.scrollIntoView({ behavior: "smooth" });
@@ -49,9 +52,11 @@ export default function Home() {
 
   const handleCategorySelect = (cat: string) => {
     setSelectedCategory(cat);
-    if (cat === "Matic Compact") setActiveShowcaseIndex(0);
-    else if (cat === "Retro Matic") setActiveShowcaseIndex(1);
-    else if (cat === "Sport Matic") setActiveShowcaseIndex(2);
+    if (cat === "Semua") return;
+    const foundIdx = bikes.findIndex((b) => b.category.toLowerCase() === cat.toLowerCase());
+    if (foundIdx !== -1) {
+      setActiveShowcaseIndex(foundIdx);
+    }
   };
 
   return (
@@ -99,7 +104,9 @@ export default function Home() {
           </h1>
 
           <p className="mt-4 text-sm sm:text-base text-slate-300 max-w-xl mx-auto leading-relaxed animate-fade-up [animation-delay:120ms]">
-            3 unit pilihan favorit urban: Beat 2022, Scoopy 2023 &amp; Aerox 150s.
+            {bikes.length > 0
+              ? `${bikes.reduce((acc, b) => acc + (b.stock ?? 0), 0)} unit siap jalan: ${bikes.map((b) => b.name).join(", ")}.`
+              : "Pilihan unit motor matic favorit urban Bandung."}
             <br className="hidden sm:inline" /> Diservis berkala &amp; higienis, lengkap 2 helm SNI + jas hujan.
           </p>
 
@@ -109,7 +116,7 @@ export default function Home() {
               <Search className="w-5 h-5 text-slate-400 mr-3 flex-shrink-0" />
               <input
                 type="text"
-                placeholder="Cari unit (Beat, Scoopy, Aerox)..."
+                placeholder={bikes.length > 0 ? `Cari unit (${bikes.map((b) => b.name.split(" ")[0]).join(", ")})...` : "Cari unit motor..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 bg-transparent focus:outline-none"
@@ -122,9 +129,9 @@ export default function Home() {
                   className="bg-transparent focus:outline-none cursor-pointer pr-1"
                 >
                   <option value="Semua">Semua Kategori</option>
-                  <option value="Matic Compact">Matic Compact (Beat)</option>
-                  <option value="Retro Matic">Retro Matic (Scoopy)</option>
-                  <option value="Sport Matic">Sport Matic (Aerox)</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
                 </select>
               </div>
               <button

@@ -151,6 +151,7 @@ export const initialMockBikes: Bike[] = [
     price_per_day: 85000,
     price_per_hour: 5000,
     plate_number: "B 3912 KFX",
+    stock: 3,
     status: "available",
     image_url: "/bikes/beat-2022.png",
     features: "2 Helm SNI, Jas Hujan, Phone Holder, Irit BBM, Lincah",
@@ -167,6 +168,7 @@ export const initialMockBikes: Bike[] = [
     price_per_day: 95000,
     price_per_hour: 5500,
     plate_number: "B 4712 SCP",
+    stock: 2,
     status: "available",
     image_url: "/bikes/scoopy-2023.png",
     features: "2 Helm Bogo, Jas Hujan, Smart Key System, Desain Retro Modern, Bagasi Luas",
@@ -183,6 +185,7 @@ export const initialMockBikes: Bike[] = [
     price_per_day: 125000,
     price_per_hour: 6500,
     plate_number: "B 6023 ARX",
+    stock: 1,
     status: "available",
     image_url: "/bikes/aerox-150s.png",
     features: "2 Helm SNI Sport, Jas Hujan, Phone Holder, Desain Agresif Sporty, Sub-tank Suspension",
@@ -525,6 +528,21 @@ export async function adminUpdateBike(id: number, data: Partial<Bike>): Promise<
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || "Gagal memperbarui motor");
     return { success: true };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Error" };
+  }
+}
+
+export async function adminUpdateBikeStock(id: number, stock: number): Promise<{ success: boolean; data?: Bike; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/admin/bikes/${id}/stock`, {
+      method: "PATCH",
+      headers: authHeaders(),
+      body: JSON.stringify({ stock }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Gagal memperbarui stok motor");
+    return { success: true, data: json.data };
   } catch (err: unknown) {
     return { success: false, error: err instanceof Error ? err.message : "Error" };
   }

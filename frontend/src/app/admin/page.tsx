@@ -14,6 +14,7 @@ import {
   clearAuth,
   adminCreateBike,
   adminUpdateBike,
+  adminUpdateBikeStock,
   adminDeleteBike,
   subscribeAuth,
   getAuthSnapshot,
@@ -24,6 +25,7 @@ import {
   RefreshCw,
   LogOut,
   Plus,
+  Minus,
   Pencil,
   Trash2,
   X,
@@ -103,6 +105,7 @@ export default function AdminPage() {
     price_per_day: number;
     price_per_hour: number;
     plate_number: string;
+    stock: number;
     image_url: string;
     features: string;
     description: string;
@@ -117,6 +120,7 @@ export default function AdminPage() {
     price_per_day: 100000,
     price_per_hour: 5500,
     plate_number: "",
+    stock: 1,
     image_url: "",
     features: "",
     description: "",
@@ -313,6 +317,7 @@ export default function AdminPage() {
       price_per_day: 100000,
       price_per_hour: 5500,
       plate_number: "",
+      stock: 1,
       image_url: "",
       features: "",
       description: "",
@@ -334,6 +339,7 @@ export default function AdminPage() {
       price_per_day: bike.price_per_day,
       price_per_hour: bike.price_per_hour ?? 0,
       plate_number: bike.plate_number,
+      stock: bike.stock ?? 0,
       image_url: bike.image_url,
       features: bike.features,
       description: bike.description,
@@ -341,6 +347,29 @@ export default function AdminPage() {
     });
     setFormError("");
     setShowBikeForm(true);
+  };
+
+  const handleQuickStockChange = async (bike: Bike, delta: number) => {
+    const currentStock = bike.stock ?? 0;
+    const newStock = Math.max(0, currentStock + delta);
+    if (newStock === currentStock) return;
+
+    // Optimistic UI update
+    setBikes((prev) =>
+      prev.map((b) =>
+        b.id === bike.id
+          ? { ...b, stock: newStock, status: newStock === 0 ? "maintenance" : "available" }
+          : b
+      )
+    );
+
+    const res = await adminUpdateBikeStock(bike.id, newStock);
+    if (!res.success) {
+      alert(res.error || "Gagal mengubah stok armada");
+      loadData();
+    } else {
+      loadData();
+    }
   };
 
   const handleSaveBike = async (e: React.FormEvent) => {
@@ -504,8 +533,8 @@ export default function AdminPage() {
             {
               icon: BikeIcon,
               label: "Total Armada Unit",
-              value: String(stats?.total_bikes ?? 0),
-              sub: `${stats?.available_bikes ?? 0} Unit Siap Jalan`,
+              value: `${bikes.reduce((acc, b) => acc + (b.stock ?? 0), 0)} Unit`,
+              sub: bikes.length > 0 ? bikes.map((b) => `${b.name.split(" ")[0]}: ${b.stock ?? 0}`).join(" · ") : `${stats?.available_bikes ?? 0} Unit Siap Jalan`,
               accent: "bg-moss/10 text-moss",
               subClass: "text-moss",
               border: "border-t-moss/60",
@@ -878,17 +907,52 @@ export default function AdminPage() {
                         {formatRupiah(bike.price_per_hour ?? 0)} <span className="font-normal">/ jam</span>
                       </p>
                       <p className="text-[11px] text-ink-muted mt-1">Plat: {bike.plate_number}</p>
-                      <span
-                        className={`inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-[10px] font-medium mt-1 ${
-                          bike.status === "available"
-                            ? "bg-moss/10 text-moss border border-moss/20"
-                            : bike.status === "rented"
-                            ? "bg-rust/10 text-rust border border-rust/20"
-                            : "bg-sand-200 text-ink-muted border border-sand-300"
-                        }`}
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        <span
+                          className={`inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-[10px] font-medium ${
+                            bike.status === "available"
+                              ? "bg-moss/10 text-moss border border-moss/20"
+                              : bike.status === "rented"
+                              ? "bg-rust/10 text-rust border border-rust/20"
+                              : "bg-sand-200 text-ink-muted border border-sand-300"
+                          }`}
+                        >
+                          {bike.status === "available" ? "Tersedia" : bike.status === "rented" ? "Disewa" : "Jadwal Servis"}
+                        </span>
+                        <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-800 border border-amber-500/30">
+                          Stok: {bike.stock ?? 0} Unit {bike.available_stock !== undefined ? `(${bike.available_stock} Siap)` : ""}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Quick Stock Controller */}
+                  <div className="px-3 py-2 bg-sand-50/80 border border-sand-200 rounded-lg flex items-center justify-between">
+                    <div>
+                      <span className="text-[11px] font-bold text-ink">Ketersediaan Stok</span>
+                      <p className="text-[10px] text-ink-muted">Unit fisik siap direntalkan</p>
+                    </div>
+                    <div className="flex items-center space-x-1 bg-white border border-sand-200 rounded-lg p-0.5 shadow-xs">
+                      <button
+                        type="button"
+                        onClick={() => handleQuickStockChange(bike, -1)}
+                        disabled={bike.stock <= 0}
+                        className="w-7 h-7 rounded flex items-center justify-center hover:bg-sand-100 text-ink disabled:opacity-25 disabled:cursor-not-allowed transition cursor-pointer"
+                        title="Kurangi stok 1 unit"
                       >
-                        {bike.status === "available" ? "Tersedia" : bike.status === "rented" ? "Disewa" : "Jadwal Servis"}
+                        <Minus className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="px-2 text-xs font-black text-ink min-w-[24px] text-center">
+                        {bike.stock ?? 0}
                       </span>
+                      <button
+                        type="button"
+                        onClick={() => handleQuickStockChange(bike, 1)}
+                        className="w-7 h-7 rounded flex items-center justify-center hover:bg-sand-100 text-ink transition cursor-pointer"
+                        title="Tambah stok 1 unit"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
 
@@ -982,7 +1046,7 @@ export default function AdminPage() {
                         <td className="p-4">
                           <div className="font-semibold text-ink">{bike.name}</div>
                           <div className="text-[10px] text-ink-faint mt-0.5">
-                            {bike.brand} · {bike.plate_number}
+                            {bike.brand} · {bike.plate_number} · <span className="text-amber-800 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Stok: {bike.stock ?? 0} Unit</span>
                           </div>
                         </td>
                         <td className="p-4 text-ink-muted whitespace-nowrap">
@@ -1109,9 +1173,21 @@ export default function AdminPage() {
                   <input type="text" value={bikeForm.plate_number} onChange={(e) => setBikeForm({ ...bikeForm, plate_number: e.target.value })} placeholder="B 1234 XYZ" className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition" required />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-ink mb-1">Status</label>
+                  <label className="block text-xs font-medium text-ink mb-1">Jumlah Stok Unit *</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={bikeForm.stock}
+                    onChange={(e) => setBikeForm({ ...bikeForm, stock: Math.max(0, Number(e.target.value)) })}
+                    className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition font-bold"
+                    required
+                  />
+                  <p className="text-[10px] text-ink-faint mt-1">Kapasitas total unit armada fisik</p>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-ink mb-1">Status Ketersediaan</label>
                   <select value={bikeForm.status} onChange={(e) => setBikeForm({ ...bikeForm, status: e.target.value as "available" | "rented" | "maintenance" })} className="w-full px-3 py-2 bg-sand-50 rounded-lg border border-sand-200 text-xs text-ink focus:outline-none focus:border-rust transition">
-                    <option value="available">Tersedia</option><option value="rented">Disewa</option><option value="maintenance">Servis</option>
+                    <option value="available">Tersedia Siap Jalan</option><option value="rented">Semua Sedang Disewa</option><option value="maintenance">Dalam Perawatan / Servis</option>
                   </select>
                 </div>
                 <div className="col-span-2">
