@@ -24,8 +24,8 @@ type PaymentHandler struct {
 }
 
 func NewPaymentHandler() *PaymentHandler {
-	serverKey := os.Getenv("MIDTRANS_SERVER_KEY")
-	clientKey := os.Getenv("MIDTRANS_CLIENT_KEY")
+	serverKey := strings.TrimSpace(os.Getenv("MIDTRANS_SERVER_KEY"))
+	clientKey := strings.TrimSpace(os.Getenv("MIDTRANS_CLIENT_KEY"))
 	isProd := os.Getenv("MIDTRANS_IS_PRODUCTION") == "true"
 
 	env := midtrans.Sandbox
@@ -68,30 +68,32 @@ func (h *PaymentHandler) CreateSnapToken(c *gin.Context) {
 		return
 	}
 
-	// Gunakan token yang sudah ada jika belum lunas dan masih valid
-	if booking.PaymentToken != "" && booking.PaymentRedirectURL != "" {
+	// Gunakan token yang sudah ada jika belum lunas dan masih valid (dan bukan mock token lama)
+	if booking.PaymentToken != "" && booking.PaymentRedirectURL != "" && !strings.HasPrefix(booking.PaymentToken, "MOCK-") {
 		c.JSON(http.StatusOK, gin.H{
-			"success":      true,
-			"token":        booking.PaymentToken,
-			"redirect_url": booking.PaymentRedirectURL,
-			"client_key":   h.ClientKey,
+			"success":       true,
+			"token":         booking.PaymentToken,
+			"redirect_url":  booking.PaymentRedirectURL,
+			"client_key":    h.ClientKey,
+			"is_production": h.IsProduction,
 		})
 		return
 	}
 
 	// Jika server key belum disetel, kembalikan mock token untuk development
-	if h.ServerKey == "" || strings.HasPrefix(h.ServerKey, "SB-Mid-server-xxx") {
+	if h.ServerKey == "" || strings.HasPrefix(h.ServerKey, "SB-Mid-server-xxx") || strings.HasPrefix(h.ServerKey, "Mid-server-xxx") {
 		mockToken := fmt.Sprintf("MOCK-SNAP-TOKEN-%d", time.Now().Unix())
 		booking.PaymentToken = mockToken
 		booking.PaymentRedirectURL = "https://app.sandbox.midtrans.com/snap/v2/vtweb/" + mockToken
 		database.DB.Save(&booking)
 
 		c.JSON(http.StatusOK, gin.H{
-			"success":      true,
-			"token":        mockToken,
-			"redirect_url": booking.PaymentRedirectURL,
-			"client_key":   h.ClientKey,
-			"is_mock":      true,
+			"success":       true,
+			"token":         mockToken,
+			"redirect_url":  booking.PaymentRedirectURL,
+			"client_key":    h.ClientKey,
+			"is_production": h.IsProduction,
+			"is_mock":       true,
 		})
 		return
 	}
@@ -136,10 +138,11 @@ func (h *PaymentHandler) CreateSnapToken(c *gin.Context) {
 	database.DB.Save(&booking)
 
 	c.JSON(http.StatusOK, gin.H{
-		"success":      true,
-		"token":        snapResp.Token,
-		"redirect_url": snapResp.RedirectURL,
-		"client_key":   h.ClientKey,
+		"success":       true,
+		"token":         snapResp.Token,
+		"redirect_url":  snapResp.RedirectURL,
+		"client_key":    h.ClientKey,
+		"is_production": h.IsProduction,
 	})
 }
 
@@ -161,7 +164,7 @@ func (h *PaymentHandler) HandleNotification(c *gin.Context) {
 	}
 
 	// Validasi signature key jika server key dikonfigurasi
-	if h.ServerKey != "" && !strings.HasPrefix(h.ServerKey, "SB-Mid-server-xxx") {
+	if h.ServerKey != "" && !strings.HasPrefix(h.ServerKey, "SB-Mid-server-xxx") && !strings.HasPrefix(h.ServerKey, "Mid-server-xxx") {
 		hasher := sha512.New()
 		hasher.Write([]byte(payload.OrderID + payload.StatusCode + payload.GrossAmount + h.ServerKey))
 		expectedSig := hex.EncodeToString(hasher.Sum(nil))
