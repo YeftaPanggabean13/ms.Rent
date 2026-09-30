@@ -15,9 +15,10 @@ import { Search } from "lucide-react";
 export default function Home() {
   const [bikes, setBikes] = useState<Bike[]>([]);
 
-  // Search state
+  // Search & showcase state
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Semua");
+  const [activeShowcaseIndex, setActiveShowcaseIndex] = useState(0);
 
   const [bookingBike, setBookingBike] = useState<Bike | null>(null);
   const [infoBike, setInfoBike] = useState<Bike | null>(null);
@@ -32,6 +33,32 @@ export default function Home() {
     loadData();
   }, []);
 
+  const categories = Array.from(new Set(bikes.map((b) => b.category))).filter(Boolean);
+
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const q = searchQuery.toLowerCase().trim();
+    const foundIdx = bikes.findIndex((b) => {
+      const matchQuery = !q || b.name.toLowerCase().includes(q) || b.brand.toLowerCase().includes(q) || b.category.toLowerCase().includes(q);
+      const matchCat = selectedCategory === "Semua" || b.category.toLowerCase() === selectedCategory.toLowerCase();
+      return matchQuery && matchCat;
+    });
+    if (foundIdx !== -1) {
+      setActiveShowcaseIndex(foundIdx);
+    }
+    const elem = document.getElementById("armada");
+    if (elem) elem.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleCategorySelect = (cat: string) => {
+    setSelectedCategory(cat);
+    if (cat === "Semua") return;
+    const foundIdx = bikes.findIndex((b) => b.category.toLowerCase() === cat.toLowerCase());
+    if (foundIdx !== -1) {
+      setActiveShowcaseIndex(foundIdx);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-bg text-ink flex flex-col font-sans">
       {/* Navigation */}
@@ -39,9 +66,6 @@ export default function Home() {
 
       {/* ──────────────────────────────────────────────────────────────────
           HERO — Dark with Rich Warm Brown Gradient & Glow
-          ────────────────────────────────────────────────────────────────── */}
-      {/* ──────────────────────────────────────────────────────────────────
-          HERO — Dark Luxury Garage with Glowing Warm Orange Gradients
           ────────────────────────────────────────────────────────────────── */}
       <section className="relative pt-16 pb-16 sm:pt-20 sm:pb-20 overflow-hidden bg-[#151D24] text-white border-b border-line">
         {/* Background photo + dark overlays + subtle grid */}
@@ -56,7 +80,7 @@ export default function Home() {
           <div className="absolute inset-0 bg-grid-light opacity-60" />
         </div>
 
-        {/* Glowing Orange Radial Gradients (Gradasi Orens-Orens Asli) */}
+        {/* Glowing Orange Radial Gradients */}
         <div 
           className="absolute -top-36 right-0 w-[40rem] h-[40rem] rounded-full bg-[#C1622A]/35 blur-[130px] pointer-events-none" 
           aria-hidden="true" 
@@ -67,12 +91,10 @@ export default function Home() {
         />
 
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-          {/* Eyebrow — Pure clean typography, no AI pill badge */}
           <p className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.25em] text-[#E9974F] animate-fade-up">
             Garasi Sewa Motor Urban Bandung
           </p>
 
-          {/* Headline — bold with warm amber/orange accent */}
           <h1 className="mt-5 text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-[1.1] tracking-tight text-white animate-fade-up [animation-delay:60ms]">
             Sewa motor{" "}
             <span className="text-[#E9974F]">
@@ -82,17 +104,19 @@ export default function Home() {
           </h1>
 
           <p className="mt-4 text-sm sm:text-base text-slate-300 max-w-xl mx-auto leading-relaxed animate-fade-up [animation-delay:120ms]">
-            Unit 2023–2024 diservis berkala &amp; higienis, lengkap 2 helm SNI + jas hujan.
-            <br className="hidden sm:inline" /> Antar-jemput stasiun, hotel, dan bandara.
+            {bikes.length > 0
+              ? `${bikes.reduce((acc, b) => acc + (b.stock ?? 0), 0)} unit siap jalan: ${bikes.map((b) => b.name).join(", ")}.`
+              : "Pilihan unit motor matic favorit urban Bandung."}
+            <br className="hidden sm:inline" /> Diservis berkala &amp; higienis, lengkap 2 helm SNI + jas hujan.
           </p>
 
           {/* Search bar — clean, crisp, floating container on dark */}
           <div className="mt-8 max-w-3xl mx-auto animate-fade-up [animation-delay:180ms]">
-            <div className="flex items-center bg-white rounded-full border border-white/20 shadow-2xl p-1.5 pl-5 focus-within:ring-2 focus-within:ring-[#C1622A]/50 transition-all">
+            <form onSubmit={handleSearchSubmit} className="flex items-center bg-white rounded-full border border-white/20 shadow-2xl p-1.5 pl-5 focus-within:ring-2 focus-within:ring-[#C1622A]/50 transition-all">
               <Search className="w-5 h-5 text-slate-400 mr-3 flex-shrink-0" />
               <input
                 type="text"
-                placeholder="Cari unit (Beat, Scoopy, Aerox, NMAX, PCX...)"
+                placeholder={bikes.length > 0 ? `Cari unit (${bikes.map((b) => b.name.split(" ")[0]).join(", ")})...` : "Cari unit motor..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 bg-transparent focus:outline-none"
@@ -101,46 +125,44 @@ export default function Home() {
               <div className="hidden sm:flex items-center text-xs sm:text-sm text-slate-700 font-medium whitespace-nowrap pr-2">
                 <select
                   value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  onChange={(e) => handleCategorySelect(e.target.value)}
                   className="bg-transparent focus:outline-none cursor-pointer pr-1"
                 >
                   <option value="Semua">Semua Kategori</option>
-                  <option value="Matic Compact">Matic Compact</option>
-                  <option value="Maxi Scooter">Maxi Scooter</option>
-                  <option value="Classic & Lifestyle">Vespa &amp; Klasik</option>
-                  <option value="Sport Matic">Sport Matic</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
                 </select>
               </div>
-              <a
-                href="#armada"
-                className="px-6 py-2.5 bg-[#C1622A] hover:bg-[#A95120] text-white font-bold text-xs sm:text-sm rounded-full transition whitespace-nowrap shadow-sm flex-shrink-0"
+              <button
+                type="submit"
+                className="px-6 py-2.5 bg-[#C1622A] hover:bg-[#A95120] text-white font-bold text-xs sm:text-sm rounded-full transition whitespace-nowrap shadow-sm flex-shrink-0 cursor-pointer"
               >
                 Cari Unit
-              </a>
-            </div>
-
-         
+              </button>
+            </form>
           </div>
 
-          {/* Trust indicators — inline with warm orange checkmarks */}
+          {/* Trust indicators */}
           <div className="mt-10 pt-7 border-t border-white/10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-slate-300 animate-fade-up [animation-delay:320ms]">
-            <span className="flex items-center gap-1.5"><span className="text-[#E9974F] font-bold">✓</span> Unit Tahun 2023–2024</span>
+            <span className="flex items-center gap-1.5"><span className="text-[#E9974F] font-bold">✓</span> Beat, Scoopy &amp; Aerox</span>
             <span className="hidden sm:inline text-white/20">|</span>
             <span className="flex items-center gap-1.5"><span className="text-[#E9974F] font-bold">✓</span> 2 Helm SNI + Jas Hujan</span>
             <span className="hidden sm:inline text-white/20">|</span>
-            <span className="flex items-center gap-1.5"><span className="text-[#E9974F] font-bold">✓</span> Antar Jemput Lokasi</span>
+            <span className="flex items-center gap-1.5"><span className="text-[#E9974F] font-bold">✓</span> Antar Jemput Stasiun / Hotel</span>
             <span className="hidden sm:inline text-white/20">|</span>
-            <span className="flex items-center gap-1.5"><span className="text-[#E9974F] font-bold">✓</span> Bantuan 24 Jam</span>
+            <span className="flex items-center gap-1.5"><span className="text-[#E9974F] font-bold">✓</span> Bantuan 24 Jam Bandung</span>
           </div>
         </div>
       </section>
 
-
       {/* ──────────────────────────────────────────────────────────────────
-          KATALOG SHOWCASE — Beat 2022, Scoppy 2023, Aerox 150s
+          KATALOG SHOWCASE — Beat 2022, Scoopy 2023, Aerox 150s
           ────────────────────────────────────────────────────────────────── */}
       <ShowcaseCatalog
         bikes={bikes}
+        externalActiveIndex={activeShowcaseIndex}
+        onActiveIndexChange={setActiveShowcaseIndex}
         onSelectBikeForBooking={(b) => setBookingBike(b)}
         onOpenHoursModal={(b) => setInfoBike(b)}
       />

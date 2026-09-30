@@ -17,21 +17,25 @@ func NewDashboardHandler() *DashboardHandler {
 // GetDashboardStats mengembalikan ringkasan metrik rental motor untuk panel admin
 func (h *DashboardHandler) GetDashboardStats(c *gin.Context) {
 	var totalBikes int64
-	var availableBikes int64
-	var rentedBikes int64
-	var maintenanceBikes int64
-	var totalBookings int64
 	var activeBookings int64
 	var pendingBookings int64
+	var totalBookings int64
+	var maintenanceBikes int64
 
-	database.DB.Model(&models.Bike{}).Count(&totalBikes)
-	database.DB.Model(&models.Bike{}).Where("status = ?", "available").Count(&availableBikes)
-	database.DB.Model(&models.Bike{}).Where("status = ?", "rented").Count(&rentedBikes)
+	database.DB.Model(&models.Bike{}).Select("COALESCE(SUM(stock), 0)").Scan(&totalBikes)
 	database.DB.Model(&models.Bike{}).Where("status = ?", "maintenance").Count(&maintenanceBikes)
 
 	database.DB.Model(&models.Booking{}).Count(&totalBookings)
 	database.DB.Model(&models.Booking{}).Where("booking_status = ?", "active").Count(&activeBookings)
 	database.DB.Model(&models.Booking{}).Where("booking_status = ?", "pending").Count(&pendingBookings)
+
+	var currentlyRented int64
+	database.DB.Model(&models.Booking{}).Where("booking_status IN ('confirmed', 'active')").Count(&currentlyRented)
+	availableBikes := totalBikes - currentlyRented
+	if availableBikes < 0 {
+		availableBikes = 0
+	}
+	rentedBikes := currentlyRented
 
 	var totalRevenue float64
 	database.DB.Model(&models.Booking{}).

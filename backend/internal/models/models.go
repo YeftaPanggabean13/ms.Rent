@@ -14,8 +14,10 @@ type Bike struct {
 	Transmission string    `gorm:"size:30" json:"transmission"`
 	PricePerDay  float64   `gorm:"not null" json:"price_per_day"`
 	PricePerHour float64   `gorm:"default:0" json:"price_per_hour"`
-	PlateNumber  string    `gorm:"size:30" json:"plate_number"`
-	Status       string    `gorm:"size:30;default:'available'" json:"status"` // available, rented, maintenance
+	PlateNumber    string    `gorm:"size:30" json:"plate_number"`
+	Stock          int       `gorm:"default:1" json:"stock"`
+	AvailableStock int       `gorm:"-" json:"available_stock"`
+	Status         string    `gorm:"size:30;default:'available'" json:"status"` // available, rented, maintenance
 	ImageURL     string    `gorm:"size:255" json:"image_url"`
 	Features     string    `gorm:"size:255" json:"features"` // comma separated e.g. "2 Helm SNI, Jas Hujan, Phone Holder"
 	Description  string    `gorm:"type:text" json:"description"`

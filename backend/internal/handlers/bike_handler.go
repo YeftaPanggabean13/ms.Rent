@@ -2,11 +2,30 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"ms_rent_backend/internal/database"
 	"ms_rent_backend/internal/models"
 )
+
+func calculateAvailableStock(bike *models.Bike) {
+	if bike.Status == "maintenance" || bike.Stock <= 0 {
+		bike.AvailableStock = 0
+		return
+	}
+	today := time.Now().Format("2006-01-02")
+	var activeCount int64
+	database.DB.Model(&models.Booking{}).
+		Where("bike_id = ? AND booking_status IN ('confirmed', 'active') AND start_date <= ? AND end_date >= ?", bike.ID, today, today).
+		Count(&activeCount)
+
+	avail := bike.Stock - int(activeCount)
+	if avail < 0 {
+		avail = 0
+	}
+	bike.AvailableStock = avail
+}
 
 type BikeHandler struct{}
 
@@ -43,6 +62,10 @@ func (h *BikeHandler) GetBikes(c *gin.Context) {
 		return
 	}
 
+	for i := range bikes {
+		calculateAvailableStock(&bikes[i])
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"count":   len(bikes),
@@ -60,6 +83,8 @@ func (h *BikeHandler) GetBikeByID(c *gin.Context) {
 		return
 	}
 
+	calculateAvailableStock(&bike)
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    bike,
@@ -76,6 +101,9 @@ func (h *BikeHandler) CreateBike(c *gin.Context) {
 
 	if input.Status == "" {
 		input.Status = "available"
+	}
+	if input.Stock <= 0 {
+		input.Stock = 1
 	}
 
 	if err := database.DB.Create(&input).Error; err != nil {
@@ -116,6 +144,7 @@ func (h *BikeHandler) UpdateBike(c *gin.Context) {
 	bike.PricePerDay = input.PricePerDay
 	bike.PricePerHour = input.PricePerHour
 	bike.PlateNumber = input.PlateNumber
+	bike.Stock = input.Stock
 	bike.Status = input.Status
 	bike.ImageURL = input.ImageURL
 	bike.Features = input.Features
@@ -126,9 +155,55 @@ func (h *BikeHandler) UpdateBike(c *gin.Context) {
 		return
 	}
 
+	calculateAvailableStock(&bike)
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Unit motor berhasil diperbarui",
+		"data":    bike,
+	})
+}
+
+// UpdateStock memperbarui ketersediaan / stok unit motor secara cepat
+func (h *BikeHandler) UpdateStock(c *gin.Context) {
+	id := c.Param("id")
+	var bike models.Bike
+
+	if err := database.DB.First(&bike, id).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Motor tidak ditemukan"})
+		return
+	}
+
+	var input struct {
+		Stock int `json:"stock"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Format data tidak valid: " + err.Error()})
+		return
+	}
+
+	if input.Stock < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Jumlah stok tidak boleh kurang dari 0"})
+		return
+	}
+
+	bike.Stock = input.Stock
+	if bike.Stock == 0 {
+		bike.Status = "maintenance"
+	} else if bike.Status == "maintenance" && bike.Stock > 0 {
+		bike.Status = "available"
+	}
+
+	if err := database.DB.Save(&bike).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Gagal memperbarui stok: " + err.Error()})
+		return
+	}
+
+	calculateAvailableStock(&bike)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Stok armada motor berhasil diperbarui",
 		"data":    bike,
 	})
 }

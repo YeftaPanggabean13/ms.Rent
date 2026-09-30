@@ -100,6 +100,7 @@ func SetupRouter() *gin.Engine {
 			// Bikes CRUD
 			admin.POST("/bikes", bikeHandler.CreateBike)
 			admin.PUT("/bikes/:id", bikeHandler.UpdateBike)
+			admin.PATCH("/bikes/:id/stock", bikeHandler.UpdateStock)
 			admin.DELETE("/bikes/:id", bikeHandler.DeleteBike)
 
 			// Bookings management

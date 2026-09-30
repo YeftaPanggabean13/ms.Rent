@@ -55,9 +55,9 @@ export default function BikeDetailPage() {
       }
       setBike(b);
 
-      // Load related bikes (same category, exclude current)
-      const allBikes = await getBikes({ category: b.category });
-      setRelatedBikes(allBikes.filter((rb) => rb.id !== b.id).slice(0, 3));
+      // Load other bikes in garage (exclude current)
+      const allBikes = await getBikes();
+      setRelatedBikes(allBikes.filter((rb) => rb.id !== b.id));
 
       setLoading(false);
     }
@@ -230,7 +230,7 @@ export default function BikeDetailPage() {
               <div className="absolute inset-0 bg-gradient-to-t from-ink/30 via-transparent to-transparent" />
 
               {/* Status badge */}
-              <div className="absolute top-4 left-4">
+              <div className="absolute top-4 left-4 flex items-center gap-2">
                 <span
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md border ${
                     bike.status === "available"
@@ -241,6 +241,9 @@ export default function BikeDetailPage() {
                   }`}
                 >
                   {bike.status === "available" ? "✓ Tersedia" : bike.status === "rented" ? "Sedang Disewa" : "Dalam Servis"}
+                </span>
+                <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-white/95 backdrop-blur-md text-ink border border-sand-200 shadow-warm-sm">
+                  Stok: {bike.stock ?? 0} Unit {bike.available_stock !== undefined ? `(${bike.available_stock} Siap)` : ""}
                 </span>
               </div>
 
@@ -334,7 +337,23 @@ export default function BikeDetailPage() {
                   <h1 className="text-2xl sm:text-3xl font-bold text-ink leading-tight">
                     {bike.name}
                   </h1>
-                  <p className="text-xs text-ink-faint mt-1">Plat: {bike.plate_number}</p>
+                  <div className="flex items-center justify-between gap-2 mt-1">
+                    <p className="text-xs text-ink-faint">Plat: {bike.plate_number}</p>
+                    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold ${
+                      (bike.available_stock ?? bike.stock ?? 0) > 0 && bike.status !== "maintenance"
+                        ? "bg-moss/10 text-moss"
+                        : "bg-rust/10 text-rust"
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${
+                        (bike.available_stock ?? bike.stock ?? 0) > 0 && bike.status !== "maintenance"
+                          ? "bg-moss"
+                          : "bg-rust"
+                      }`} />
+                      {(bike.available_stock ?? bike.stock ?? 0) > 0 && bike.status !== "maintenance"
+                        ? `${bike.available_stock ?? bike.stock} Unit Siap Jalan`
+                        : "Unit Habis / Dalam Servis"}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Price */}
@@ -381,10 +400,10 @@ export default function BikeDetailPage() {
                 {/* CTA */}
                 <button
                   onClick={() => setBookingBike(bike)}
-                  disabled={bike.status === "maintenance"}
+                  disabled={bike.status === "maintenance" || (bike.available_stock ?? bike.stock ?? 0) <= 0}
                   className="w-full py-3.5 rounded-lg bg-rust hover:bg-rust-hover text-white font-semibold text-sm transition shadow-warm-sm active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                 >
-                  {bike.status === "maintenance" ? "Unit Tidak Tersedia" : "Pesan Unit Ini Sekarang"}
+                  {bike.status === "maintenance" || (bike.available_stock ?? bike.stock ?? 0) <= 0 ? "Unit Tidak Tersedia" : "Pesan Unit Ini Sekarang"}
                 </button>
 
                 {/* WhatsApp */}
@@ -433,10 +452,10 @@ export default function BikeDetailPage() {
           <div className="flex items-end justify-between mb-6">
             <div>
               <span className="eyebrow-line text-xs font-semibold text-rust tracking-[0.14em] uppercase">
-                Motor Serupa
+                Armada Garasi
               </span>
               <h2 className="text-2xl font-bold text-ink mt-2">
-                Pilihan Lain di Kategori {bike.category}
+                Pilihan Unit Lainnya di Garasi
               </h2>
             </div>
             <Link

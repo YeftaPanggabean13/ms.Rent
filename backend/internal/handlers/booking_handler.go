@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -37,6 +38,12 @@ func (h *BookingHandler) GetCalendar(c *gin.Context) {
 	}
 	endOfMonth := startOfMonth.AddDate(0, 1, -1)
 
+	var bike models.Bike
+	if err := database.DB.Select("id, stock, status").First(&bike, bikeID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Motor tidak ditemukan"})
+		return
+	}
+
 	// Ambil semua booking yang overlap dengan bulan ini
 	var bookings []models.Booking
 	database.DB.Where(
@@ -44,8 +51,9 @@ func (h *BookingHandler) GetCalendar(c *gin.Context) {
 		bikeID, endOfMonth.Format("2006-01-02"), startOfMonth.Format("2006-01-02"),
 	).Find(&bookings)
 
-	// Bangun map tanggal yang terbooked
-	bookedDates := map[string]string{} // date -> status
+	// Hitung akumulasi booking per tanggal
+	dateCount := map[string]int{}
+	dateStatus := map[string]string{}
 	for _, b := range bookings {
 		start, e1 := time.Parse("2006-01-02", b.StartDate)
 		end, e2 := time.Parse("2006-01-02", b.EndDate)
@@ -54,13 +62,23 @@ func (h *BookingHandler) GetCalendar(c *gin.Context) {
 		}
 		for d := start; !d.After(end); d = d.AddDate(0, 0, 1) {
 			dateStr := d.Format("2006-01-02")
-			bookedDates[dateStr] = b.BookingStatus
+			dateCount[dateStr]++
+			dateStatus[dateStr] = b.BookingStatus
+		}
+	}
+
+	// Tanggal dianggap penuh hanya jika jumlah booking >= kapasitas stok motor (atau stok = 0)
+	bookedDates := map[string]string{}
+	for dateStr, count := range dateCount {
+		if count >= bike.Stock || bike.Stock == 0 {
+			bookedDates[dateStr] = dateStatus[dateStr]
 		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success":      true,
 		"bike_id":      bikeID,
+		"stock":        bike.Stock,
 		"month":        month,
 		"booked_dates": bookedDates,
 	})
@@ -90,6 +108,12 @@ func (h *BookingHandler) GetBikeHours(c *gin.Context) {
 		Order("start_date ASC, start_time ASC").
 		Find(&bookings)
 
+	var bike models.Bike
+	if err := database.DB.Select("id, stock, status").First(&bike, bikeID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Motor tidak ditemukan"})
+		return
+	}
+
 	statusLabels := map[string]string{
 		"pending":   "Menunggu Konfirmasi",
 		"confirmed": "Siap Jalan",
@@ -103,36 +127,92 @@ func (h *BookingHandler) GetBikeHours(c *gin.Context) {
 		StatusLabel string `json:"status_label"`
 	}
 	intervals := make([]hourInterval, 0, len(bookings))
-	for i := range bookings {
-		b := &bookings[i]
-		start, end := b.IntervalStart(), b.IntervalEnd()
-		if start.IsZero() || end.IsZero() {
-			continue
+
+	if bike.Stock > 1 {
+		// Interval waktu hanya diblokir bila jumlah pemakaian bersamaan mencapai kapasitas total stok
+		type event struct {
+			t     time.Time
+			delta int
 		}
-		// Pangkas ke rentang tanggal yang diminta
-		if start.Before(dayStart) {
-			start = dayStart
+		var events []event
+		for i := range bookings {
+			b := &bookings[i]
+			start, end := b.IntervalStart(), b.IntervalEnd()
+			if start.IsZero() || end.IsZero() {
+				continue
+			}
+			if start.Before(dayStart) {
+				start = dayStart
+			}
+			if end.After(dayEnd) {
+				end = dayEnd
+			}
+			if !end.After(start) {
+				continue
+			}
+			events = append(events, event{t: start, delta: 1})
+			events = append(events, event{t: end, delta: -1})
 		}
-		if end.After(dayEnd) {
-			end = dayEnd
-		}
-		if !end.After(start) {
-			continue
-		}
-		endLabel := "24:00"
-		if end.Before(dayEnd) {
-			endLabel = end.Format("15:04")
-		}
-		label, ok := statusLabels[b.BookingStatus]
-		if !ok {
-			label = b.BookingStatus
-		}
-		intervals = append(intervals, hourInterval{
-			Start:       start.Format("15:04"),
-			End:         endLabel,
-			Status:      b.BookingStatus,
-			StatusLabel: label,
+		sort.SliceStable(events, func(i, j int) bool {
+			if events[i].t.Equal(events[j].t) {
+				return events[i].delta < events[j].delta
+			}
+			return events[i].t.Before(events[j].t)
 		})
+		concurrent := 0
+		var blockStart time.Time
+		for _, ev := range events {
+			prev := concurrent
+			concurrent += ev.delta
+			if prev < bike.Stock && concurrent >= bike.Stock {
+				blockStart = ev.t
+			} else if prev >= bike.Stock && concurrent < bike.Stock {
+				if !blockStart.IsZero() && ev.t.After(blockStart) {
+					endLabel := "24:00"
+					if ev.t.Before(dayEnd) {
+						endLabel = ev.t.Format("15:04")
+					}
+					intervals = append(intervals, hourInterval{
+						Start:       blockStart.Format("15:04"),
+						End:         endLabel,
+						Status:      "confirmed",
+						StatusLabel: "Semua Unit Terpakai",
+					})
+				}
+				blockStart = time.Time{}
+			}
+		}
+	} else {
+		for i := range bookings {
+			b := &bookings[i]
+			start, end := b.IntervalStart(), b.IntervalEnd()
+			if start.IsZero() || end.IsZero() {
+				continue
+			}
+			if start.Before(dayStart) {
+				start = dayStart
+			}
+			if end.After(dayEnd) {
+				end = dayEnd
+			}
+			if !end.After(start) {
+				continue
+			}
+			endLabel := "24:00"
+			if end.Before(dayEnd) {
+				endLabel = end.Format("15:04")
+			}
+			label, ok := statusLabels[b.BookingStatus]
+			if !ok {
+				label = b.BookingStatus
+			}
+			intervals = append(intervals, hourInterval{
+				Start:       start.Format("15:04"),
+				End:         endLabel,
+				Status:      b.BookingStatus,
+				StatusLabel: label,
+			})
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -154,18 +234,28 @@ func (h *BookingHandler) CheckAvailability(c *gin.Context) {
 		return
 	}
 
-	var overlappingCount int64
-	// Periksa overlap booking yang masih aktif/confirmed
-	database.DB.Model(&models.Booking{}).
-		Where("bike_id = ? AND booking_status IN ('pending', 'confirmed', 'active')", bikeID).
-		Where("(start_date <= ? AND end_date >= ?)", endDate, startDate).
-		Count(&overlappingCount)
+	var bike models.Bike
+	if err := database.DB.Select("id, stock, status").First(&bike, bikeID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Motor tidak ditemukan"})
+		return
+	}
 
-	isAvailable := overlappingCount == 0
+	mockBooking := models.Booking{
+		BikeID:     bike.ID,
+		StartDate:  startDate,
+		EndDate:    endDate,
+		RentalType: "daily",
+		StartTime:  "08:00",
+		EndTime:    "08:00",
+	}
+
+	conflict := hasConflict(bike.ID, &mockBooking, 0)
+	isAvailable := !conflict && bike.Status != "maintenance" && bike.Stock > 0
 
 	c.JSON(http.StatusOK, gin.H{
 		"success":      true,
 		"bike_id":      bikeID,
+		"stock":        bike.Stock,
 		"start_date":   startDate,
 		"end_date":     endDate,
 		"is_available": isAvailable,
@@ -173,7 +263,7 @@ func (h *BookingHandler) CheckAvailability(c *gin.Context) {
 			if isAvailable {
 				return "Motor tersedia untuk jadwal yang dipilih"
 			}
-			return "Motor sudah dibooking pada rentang tanggal tersebut"
+			return "Stok unit motor ini sudah penuh dipesan pada rentang tanggal tersebut"
 		}(),
 	})
 }
@@ -437,10 +527,15 @@ func (h *BookingHandler) UpdateBookingStatus(c *gin.Context) {
 	}
 
 	// Update status motor jika status booking berubah
-	if req.BookingStatus == "active" {
-		database.DB.Model(&models.Bike{}).Where("id = ?", booking.BikeID).Update("status", "rented")
-	} else if req.BookingStatus == "completed" || req.BookingStatus == "cancelled" {
-		database.DB.Model(&models.Bike{}).Where("id = ?", booking.BikeID).Update("status", "available")
+	var activeForBike int64
+	database.DB.Model(&models.Booking{}).Where("bike_id = ? AND booking_status = 'active'", booking.BikeID).Count(&activeForBike)
+	var currentBike models.Bike
+	if err := database.DB.Select("id, stock").First(&currentBike, booking.BikeID).Error; err == nil {
+		if activeForBike >= int64(currentBike.Stock) && currentBike.Stock > 0 {
+			database.DB.Model(&models.Bike{}).Where("id = ?", booking.BikeID).Update("status", "rented")
+		} else {
+			database.DB.Model(&models.Bike{}).Where("id = ? AND status != 'maintenance'", booking.BikeID).Update("status", "available")
+		}
 	}
 
 	database.DB.Preload("Bike").First(&booking, booking.ID)
@@ -453,19 +548,74 @@ func (h *BookingHandler) UpdateBookingStatus(c *gin.Context) {
 }
 
 // hasConflict memeriksa apakah ada booking lain (pending/confirmed/active) pada motor
-// yang sama dan intervalnya menimpa dengan interval booking yang sedang dicek.
+// yang sama dan jumlah booking yang menimpa pada suatu titik waktu melebihi atau sama dengan kapasitas stok motor.
 func hasConflict(bikeID uint, b *models.Booking, excludeID uint) bool {
+	var bike models.Bike
+	if err := database.DB.Select("id, stock, status").First(&bike, bikeID).Error; err != nil {
+		return true
+	}
+	if bike.Status == "maintenance" || bike.Stock <= 0 {
+		return true
+	}
+
+	bStart := b.IntervalStart()
+	bEnd := b.IntervalEnd()
+	if bStart.IsZero() || bEnd.IsZero() {
+		return false
+	}
+
 	var candidates []models.Booking
 	database.DB.
 		Where("bike_id = ? AND booking_status IN ('pending', 'confirmed', 'active')", bikeID).
 		Where("start_date <= ? AND end_date >= ?", b.EndDate, b.StartDate).
 		Find(&candidates)
 
+	type event struct {
+		t     time.Time
+		delta int
+	}
+	var events []event
+
 	for i := range candidates {
 		if candidates[i].ID == excludeID {
 			continue
 		}
-		if models.Overlaps(&candidates[i], b) {
+		if !models.Overlaps(&candidates[i], b) {
+			continue
+		}
+		cStart := candidates[i].IntervalStart()
+		cEnd := candidates[i].IntervalEnd()
+		if cStart.IsZero() || cEnd.IsZero() {
+			continue
+		}
+		if cStart.Before(bStart) {
+			cStart = bStart
+		}
+		if cEnd.After(bEnd) {
+			cEnd = bEnd
+		}
+		if !cEnd.After(cStart) {
+			continue
+		}
+		events = append(events, event{t: cStart, delta: 1})
+		events = append(events, event{t: cEnd, delta: -1})
+	}
+
+	if len(events) == 0 {
+		return false
+	}
+
+	sort.SliceStable(events, func(i, j int) bool {
+		if events[i].t.Equal(events[j].t) {
+			return events[i].delta < events[j].delta // -1 before +1 (unit released before next pickup)
+		}
+		return events[i].t.Before(events[j].t)
+	})
+
+	concurrent := 0
+	for _, ev := range events {
+		concurrent += ev.delta
+		if concurrent >= bike.Stock {
 			return true
 		}
 	}

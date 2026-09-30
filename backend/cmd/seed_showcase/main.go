@@ -30,21 +30,23 @@ func main() {
 			PricePerDay:  85000,
 			PricePerHour: 5000,
 			PlateNumber:  "B 3912 KFX",
+			Stock:        3,
 			Status:       "available",
 			ImageURL:     "/bikes/beat-2022.png",
 			Features:     "2 Helm SNI, Jas Hujan, Phone Holder, Irit BBM, Lincah",
 			Description:  "Explore the city sustainably with fun and seamless ease! Lincah, super hemat bahan bakar, dan partner setia mobilitas urban perkotaan.",
 		},
 		{
-			Name:         "Scoppy 2023",
+			Name:         "Scoopy 2023",
 			Brand:        "Honda",
-			Category:     "Classic & Lifestyle",
+			Category:     "Retro Matic",
 			EngineCC:     110,
 			Year:         2023,
 			Transmission: "Automatic",
 			PricePerDay:  95000,
 			PricePerHour: 5500,
 			PlateNumber:  "B 4712 SCP",
+			Stock:        2,
 			Status:       "available",
 			ImageURL:     "/bikes/scoopy-2023.png",
 			Features:     "2 Helm Bogo, Jas Hujan, Smart Key System, Desain Retro Modern, Bagasi Luas",
@@ -60,6 +62,7 @@ func main() {
 			PricePerDay:  125000,
 			PricePerHour: 6500,
 			PlateNumber:  "B 6023 ARX",
+			Stock:        1,
 			Status:       "available",
 			ImageURL:     "/bikes/aerox-150s.png",
 			Features:     "2 Helm SNI, Jas Hujan, Phone Holder, Desain Agresif Sporty, Rem ABS, Sub-tank Suspension",
@@ -84,6 +87,7 @@ func main() {
 			existing.Year = b.Year
 			existing.PricePerDay = b.PricePerDay
 			existing.PricePerHour = b.PricePerHour
+			existing.Stock = b.Stock
 			existing.ImageURL = b.ImageURL
 			existing.Features = b.Features
 			existing.Description = b.Description
